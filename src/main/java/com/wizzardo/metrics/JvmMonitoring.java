@@ -138,7 +138,7 @@ public class JvmMonitoring {
         boolean allow(T t);
     }
 
-    static class Profiler extends Thread {
+    static public class Profiler extends Thread {
 
         Recorder recorder;
         ThreadMXBean threadMXBean;
