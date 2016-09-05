@@ -1,5 +1,7 @@
 package com.wizzardo.metrics;
 
+import com.wizzardo.tools.misc.Unchecked;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -33,12 +35,7 @@ public class Recorder {
 
     public <T> T rec(String metric, Callable<T> callable, Tags tags) {
         long time = System.currentTimeMillis();
-        T result;
-        try {
-            result = callable.call();
-        } catch (Exception e) {
-            throw rethrow(e);
-        }
+        T result = Unchecked.call(callable);
         time = System.currentTimeMillis() - time;
         rec(metric, time, tags);
         return result;
@@ -134,15 +131,5 @@ public class Recorder {
         public String toString() {
             return Arrays.toString(build());
         }
-    }
-
-    private static <T extends Exception> void throwsUnchecked(Exception toThrow) throws T {
-        throw (T) toThrow;
-    }
-
-    public static RuntimeException rethrow(Exception ex) {
-        Recorder.<RuntimeException>throwsUnchecked(ex);
-
-        return new IllegalStateException("unreachable statement");
     }
 }
