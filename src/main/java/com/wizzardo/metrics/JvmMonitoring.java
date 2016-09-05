@@ -104,32 +104,12 @@ public class JvmMonitoring {
         });
 
         com.sun.management.ThreadMXBean threadMXBean = (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
-        System.out.println("isThreadAllocatedMemorySupported: " + threadMXBean.isThreadAllocatedMemorySupported());
-        if (threadMXBean.isThreadAllocatedMemorySupported())
-            System.out.println("isThreadAllocatedMemoryEnabled: " + threadMXBean.isThreadAllocatedMemoryEnabled());
-
-        System.out.println("isThreadCpuTimeSupported: " + threadMXBean.isThreadCpuTimeSupported());
-        if (threadMXBean.isThreadCpuTimeSupported())
-            System.out.println("isThreadCpuTimeEnabled: " + threadMXBean.isThreadCpuTimeEnabled());
-
         if (threadMXBean.isThreadAllocatedMemorySupported() && threadMXBean.isThreadAllocatedMemoryEnabled() && threadMXBean.isThreadCpuTimeSupported() && threadMXBean.isThreadCpuTimeEnabled()) {
             Profiler profiler = new Profiler(recorder);
             profiler.addFilter(new Filter<StackTraceElement>() {
                 @Override
                 public boolean allow(StackTraceElement stackTraceElement) {
-                    return stackTraceElement.getClassName().startsWith("com.bonial.");
-                }
-            });
-            profiler.addFilter(new Filter<StackTraceElement>() {
-                @Override
-                public boolean allow(StackTraceElement stackTraceElement) {
                     return stackTraceElement.getClassName().startsWith("com.wizzardo.");
-                }
-            });
-            profiler.addFilter(new Filter<StackTraceElement>() {
-                @Override
-                public boolean allow(StackTraceElement stackTraceElement) {
-                    return stackTraceElement.getClassName().startsWith("de.kaufda.");
                 }
             });
             profiler.start();
@@ -201,7 +181,6 @@ public class JvmMonitoring {
                                 continue;
 
                             StackTraceEntry stackTraceEntry = new StackTraceEntry(threadInfo.getThreadName(), element.getClassName(), element.getMethodName(), length - i);
-//                            System.out.println(stackTraceEntry);
                             Counter counter = samples.get(stackTraceEntry);
                             if (counter == null) {
                                 samples.put(stackTraceEntry, counter = new Counter());
@@ -213,22 +192,14 @@ public class JvmMonitoring {
 
                 time = System.nanoTime();
                 if (time >= nextPrint) {
-//                    List<Map.Entry<StackTraceEntry, Counter>> entries = new ArrayList<>(samples.size());
-//                    samples.forEach((entry, samplesCounter) -> System.out.println(entry.toString() + ": " + samplesCounter.get() + " samples"));
                     for (Map.Entry<StackTraceEntry, Counter> mapEntry : samples.entrySet()) {
-                        recorder.gauge("jvm.profiler.ste1", mapEntry.getValue().get(),
+                        recorder.gauge("jvm.profiler.ste", mapEntry.getValue().get(),
                                 Recorder.Tags.of(
                                         "thread", mapEntry.getKey().thread,
-//                                    "class", entry.declaringClass,
-//                                    "method", entry.methodName,
                                         "entry", mapEntry.getKey().depth + "-" + mapEntry.getKey().declaringClass + "." + mapEntry.getKey().methodName
 //                                    "depth", String.valueOf(entry.depth)
                                 ));
                     }
-//                    samples.forEach((entry, samplesCounter) -> System.out.println(entry.toString() + ": " + samplesCounter.get() + " samples"));
-//                    samples.entrySet().forEach(entries::add);
-//                    Collections.sort(entries, (o1, o2) -> o1.getKey().compareTo(o2.getKey()));
-//                    entries.forEach(entry -> System.out.println(entry.getKey().toString() + ": " + entry.getValue().get() + " samples"));
                     samples.clear();
                     ids = getThreadsToProfile();
                     nextPrint = getNextPrintTime();
@@ -242,7 +213,6 @@ public class JvmMonitoring {
                 for (Long id : profilingThreads) {
                     longs.add(id);
                 }
-                System.out.println("going to profile these threads: " + longs);
                 long[] ids = new long[longs.size()];
                 for (int i = 0; i < longs.size(); i++) {
                     ids[i] = longs.get(i);
@@ -392,14 +362,12 @@ public class JvmMonitoring {
                 long time = System.nanoTime();
                 if (!tInfo.profilingDisabled) {
                     if (tInfo.lastRecord != 0 && (cpuTime - tInfo.cpuTime) * 100d / (time - tInfo.lastRecord) >= 5) {
-                        System.out.println("start profiling thread " + tInfo.name + ": " + (cpuTime - tInfo.cpuTime) * 100d / (time - tInfo.lastRecord));
                         if (!tInfo.profiling) {
                             profiler.startProfiling(tInfo.id);
                             tInfo.profiling = true;
                         }
                     } else if (tInfo.profiling) {
                         profiler.stopProfiling(tInfo.id);
-                        System.out.println("stop profiling thread " + tInfo.name);
                         tInfo.profiling = false;
                     }
                 }
