@@ -14,6 +14,7 @@ public class JvmMonitoring {
     private Recorder recorder;
 
     private Cache<String, Recordable> cache;
+    private Profiler profiler;
 
     public JvmMonitoring(Recorder recorder) {
         this.recorder = recorder;
@@ -105,7 +106,7 @@ public class JvmMonitoring {
 
         com.sun.management.ThreadMXBean threadMXBean = (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
         if (threadMXBean.isThreadAllocatedMemorySupported() && threadMXBean.isThreadAllocatedMemoryEnabled() && threadMXBean.isThreadCpuTimeSupported() && threadMXBean.isThreadCpuTimeEnabled()) {
-            Profiler profiler = new Profiler(recorder);
+            profiler = new Profiler(recorder);
             profiler.addFilter(new Filter<StackTraceElement>() {
                 @Override
                 public boolean allow(StackTraceElement stackTraceElement) {
@@ -115,6 +116,10 @@ public class JvmMonitoring {
             profiler.start();
             cache.put("threading", new ThreadsStats(threadMXBean, profiler));
         }
+    }
+
+    public Profiler getProfiler() {
+        return profiler;
     }
 
     static class Counter {
@@ -139,6 +144,8 @@ public class JvmMonitoring {
         ThreadMXBean threadMXBean;
         final Set<Long> profilingThreads = Collections.newSetFromMap(new ConcurrentHashMap<Long, Boolean>());
         List<Filter<StackTraceElement>> filters = new ArrayList<>();
+        volatile int pause = 5;
+        volatile int cycles = 1;
 
         public Profiler(Recorder recorder) {
             super("Profiler");
@@ -147,12 +154,22 @@ public class JvmMonitoring {
             setDaemon(true);
         }
 
+        public void setPause(int pause) {
+            this.pause = pause;
+        }
+
+        public void setCycles(int cycles) {
+            this.cycles = cycles;
+        }
+
         @Override
         public void run() {
             long[] ids = new long[0];
             Map<StackTraceEntry, Counter> samples = new HashMap<>();
             long time;
             long nextPrint = getNextPrintTime();
+            int pause = this.pause;
+            int cycles = this.cycles;
             while (true) {
                 while (ids.length == 0) {
                     try {
@@ -160,15 +177,17 @@ public class JvmMonitoring {
                     } catch (InterruptedException ignored) {
                     }
                     ids = getThreadsToProfile();
+                    pause = this.pause;
+                    cycles = this.cycles;
                     nextPrint = getNextPrintTime();
                 }
 
                 try {
-                    Thread.sleep(5);
+                    Thread.sleep(pause);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
-                for (int j = 0; j < 1; j++) {
+                for (int j = 0; j < cycles; j++) {
                     for (ThreadInfo threadInfo : threadMXBean.getThreadInfo(ids, Integer.MAX_VALUE)) {
                         if (threadInfo == null)
                             continue;
@@ -197,11 +216,12 @@ public class JvmMonitoring {
                                 Recorder.Tags.of(
                                         "thread", mapEntry.getKey().thread,
                                         "entry", mapEntry.getKey().depth + "-" + mapEntry.getKey().declaringClass + "." + mapEntry.getKey().methodName
-//                                    "depth", String.valueOf(entry.depth)
                                 ));
                     }
                     samples.clear();
                     ids = getThreadsToProfile();
+                    pause = this.pause;
+                    cycles = this.cycles;
                     nextPrint = getNextPrintTime();
                 }
             }
@@ -230,7 +250,7 @@ public class JvmMonitoring {
             return false;
         }
 
-        private static long getNextPrintTime() {
+        private long getNextPrintTime() {
             return System.nanoTime() + 10_000_000_000L;
         }
 
@@ -244,6 +264,10 @@ public class JvmMonitoring {
 
         public void addFilter(Filter<StackTraceElement> filter) {
             filters.add(filter);
+        }
+
+        public void clearFilters() {
+            filters.clear();
         }
 
         public static class StackTraceEntry implements Comparable<StackTraceEntry> {
