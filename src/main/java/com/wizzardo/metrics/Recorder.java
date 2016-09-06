@@ -48,9 +48,9 @@ public class Recorder {
     public void rec(String metric, long duration, Tags tags) {
         try {
             if (tags == null) {
-                client.histogramDouble(metric, duration * 0.001);
+                client.histogram(metric, duration * 0.001);
             } else {
-                client.histogramDouble(metric, duration * 0.001, tags.build());
+                client.histogram(metric, duration * 0.001, tags.build());
             }
         } catch (Exception e) {
             onError(e);
@@ -64,9 +64,9 @@ public class Recorder {
     public void recValue(String metric, long duration, Tags tags) {
         try {
             if (tags == null) {
-                client.histogramLong(metric, duration);
+                client.histogram(metric, duration);
             } else {
-                client.histogramLong(metric, duration, tags.build());
+                client.histogram(metric, duration, tags.build());
             }
         } catch (Exception e) {
             onError(e);
