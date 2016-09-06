@@ -17,4 +17,5 @@ apply from: 'gradle/sonatype.gradle'
 
 dependencies {
     compile 'com.wizzardo.tools:tools:0.14+'
+    compile 'com.indeed:java-dogstatsd-client:2.0.16'
 }
