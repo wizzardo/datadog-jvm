@@ -355,6 +355,7 @@ public class JvmMonitoring {
             long[] allocatedBytes = threadMXBean.getThreadAllocatedBytes(ids);
             long[] threadUserTime = threadMXBean.getThreadUserTime(ids);
             long[] threadCpuTime = threadMXBean.getThreadCpuTime(ids);
+            long now = System.nanoTime();
 
             recorder.gauge("jvm.thread.alive", ids.length);
 
@@ -378,14 +379,15 @@ public class JvmMonitoring {
                     if (tInfo.name.equals("DestroyJavaVM") || tInfo.name.equals("Profiler"))
                         tInfo.profilingDisabled = true;
                 } else {
-                    recorder.recValue("jvm.thread.allocation", bytesAllocated - tInfo.bytesAllocated, tInfo.tags);
-                    recorder.recValue("jvm.thread.cpu", (cpuTime - tInfo.cpuTime) / 1000 / 1000, tInfo.tags);
-                    recorder.recValue("jvm.thread.cpu.user", (userTime - tInfo.userTime) / 1000 / 1000, tInfo.tags);
+                    recorder.histogram("jvm.thread.allocation", bytesAllocated - tInfo.bytesAllocated, tInfo.tags);
+                    recorder.histogram("jvm.thread.cpu", (cpuTime - tInfo.cpuTime) * 100d / (now - tInfo.lastRecord), tInfo.tags);
+                    recorder.histogram("jvm.thread.cpu.user", (userTime - tInfo.userTime) * 100d / (now - tInfo.lastRecord), tInfo.tags);
+                    recorder.histogram("jvm.thread.cpu.nanos", (cpuTime - tInfo.cpuTime), tInfo.tags);
+                    recorder.histogram("jvm.thread.cpu.user.nanos", (userTime - tInfo.userTime), tInfo.tags);
                 }
 
-                long time = System.nanoTime();
                 if (!tInfo.profilingDisabled) {
-                    if (tInfo.lastRecord != 0 && (cpuTime - tInfo.cpuTime) * 100d / (time - tInfo.lastRecord) >= 5) {
+                    if (tInfo.lastRecord != 0 && (cpuTime - tInfo.cpuTime) * 100d / (now - tInfo.lastRecord) >= 5) {
                         if (!tInfo.profiling) {
                             profiler.startProfiling(tInfo.id);
                             tInfo.profiling = true;
@@ -400,7 +402,7 @@ public class JvmMonitoring {
                 tInfo.cpuTime = cpuTime;
                 tInfo.userTime = userTime;
                 tInfo.tick = tickCounter;
-                tInfo.lastRecord = time;
+                tInfo.lastRecord = now;
             }
 
             if (tickCounter >= 30) {

@@ -61,12 +61,24 @@ public class Recorder {
         e.printStackTrace();
     }
 
-    public void recValue(String metric, long duration, Tags tags) {
+    public void histogram(String metric, long value, Tags tags) {
         try {
             if (tags == null) {
-                client.histogram(metric, duration);
+                client.histogram(metric, value);
             } else {
-                client.histogram(metric, duration, tags.build());
+                client.histogram(metric, value, tags.build());
+            }
+        } catch (Exception e) {
+            onError(e);
+        }
+    }
+
+    public void histogram(String metric, double value, Tags tags) {
+        try {
+            if (tags == null) {
+                client.histogram(metric, value);
+            } else {
+                client.histogram(metric, value, tags.build());
             }
         } catch (Exception e) {
             onError(e);
