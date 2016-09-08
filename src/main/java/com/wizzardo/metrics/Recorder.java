@@ -1,5 +1,6 @@
 package com.wizzardo.metrics;
 
+import com.wizzardo.tools.misc.Consumer;
 import com.wizzardo.tools.misc.Unchecked;
 
 import java.util.ArrayList;
@@ -13,6 +14,12 @@ import java.util.concurrent.Callable;
 public class Recorder {
 
     private Client client;
+    private Consumer<Exception> onError = new Consumer<Exception>() {
+        @Override
+        public void consume(Exception e) {
+            e.printStackTrace();
+        }
+    };
 
     public Recorder(Client client) {
         this.client = client;
@@ -58,7 +65,11 @@ public class Recorder {
     }
 
     protected void onError(Exception e) {
-        e.printStackTrace();
+        onError.consume(e);
+    }
+
+    public void onError(Consumer<Exception> onError) {
+        this.onError = onError;
     }
 
     public void histogram(String metric, long value, Tags tags) {
