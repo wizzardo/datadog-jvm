@@ -1,6 +1,7 @@
 package com.wizzardo.metrics;
 
 import com.wizzardo.tools.cache.Cache;
+import com.wizzardo.tools.collections.flow.Filter;
 
 import java.lang.management.*;
 import java.util.*;
@@ -134,16 +135,12 @@ public class JvmMonitoring {
         }
     }
 
-    public interface Filter<T> {
-        boolean allow(T t);
-    }
-
     static public class Profiler extends Thread {
 
         Recorder recorder;
         ThreadMXBean threadMXBean;
         final Set<Long> profilingThreads = Collections.newSetFromMap(new ConcurrentHashMap<Long, Boolean>());
-        List<Filter<StackTraceElement>> filters = new ArrayList<>();
+        Set<Filter<StackTraceElement>> filters = Collections.newSetFromMap(new ConcurrentHashMap<Filter<StackTraceElement>, Boolean>());
         volatile int pause = 5;
         volatile int cycles = 1;
 
