@@ -19,28 +19,13 @@ public class DatadogClient implements Client {
     }
 
     @Override
-    public void histogram(String metric, double value) {
-        client.histogram(metric, value);
-    }
-
-    @Override
     public void histogram(String metric, long value, String[] tags) {
         client.histogram(metric, value, tags);
     }
 
     @Override
-    public void histogram(String metric, long value) {
-        client.histogram(metric, value);
-    }
-
-    @Override
     public void gauge(String metric, long value, String[] tags) {
         client.gauge(metric, value, tags);
-    }
-
-    @Override
-    public void gauge(String metric, long value) {
-        client.gauge(metric, value);
     }
 
     @Override

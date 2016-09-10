@@ -12,7 +12,7 @@ import java.util.concurrent.Callable;
  * Created by wizzardo on 05/09/16.
  */
 public class Recorder {
-
+    protected final String[] EMPTY_ARRAY = new String[0];
     private Client client;
     private Consumer<Exception> onError = new Consumer<Exception>() {
         @Override
@@ -54,11 +54,7 @@ public class Recorder {
 
     public void rec(String metric, long duration, Tags tags) {
         try {
-            if (tags == null) {
-                client.histogram(metric, duration * 0.001);
-            } else {
-                client.histogram(metric, duration * 0.001, tags.build());
-            }
+            client.histogram(metric, duration * 0.001, renderTags(tags));
         } catch (Exception e) {
             onError(e);
         }
@@ -72,13 +68,21 @@ public class Recorder {
         this.onError = onError;
     }
 
+    protected String[] renderTags(Tags tags) {
+        return tags == null ? EMPTY_ARRAY : tags.build();
+    }
+
+    public void count(String metric, long value, Tags tags) {
+        try {
+            client.count(metric, value, renderTags(tags));
+        } catch (Exception e) {
+            onError(e);
+        }
+    }
+
     public void histogram(String metric, long value, Tags tags) {
         try {
-            if (tags == null) {
-                client.histogram(metric, value);
-            } else {
-                client.histogram(metric, value, tags.build());
-            }
+            client.histogram(metric, value, renderTags(tags));
         } catch (Exception e) {
             onError(e);
         }
@@ -86,11 +90,7 @@ public class Recorder {
 
     public void histogram(String metric, double value, Tags tags) {
         try {
-            if (tags == null) {
-                client.histogram(metric, value);
-            } else {
-                client.histogram(metric, value, tags.build());
-            }
+            client.histogram(metric, value, renderTags(tags));
         } catch (Exception e) {
             onError(e);
         }
@@ -102,10 +102,7 @@ public class Recorder {
 
     public void gauge(String metric, long value, Tags tags) {
         try {
-            if (tags == null)
-                client.gauge(metric, value);
-            else
-                client.gauge(metric, value, tags.build());
+            client.gauge(metric, value, renderTags(tags));
         } catch (Exception e) {
             onError(e);
         }

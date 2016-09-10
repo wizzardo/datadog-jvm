@@ -6,15 +6,9 @@ package com.wizzardo.metrics;
 public interface Client {
     void histogram(String metric, double value, String[] tags);
 
-    void histogram(String metric, double value);
-
     void histogram(String metric, long value, String[] tags);
 
-    void histogram(String metric, long value);
-
     void gauge(String metric, long value, String[] tags);
-
-    void gauge(String metric, long value);
 
     void increment(String metric, String[] tags);
 
