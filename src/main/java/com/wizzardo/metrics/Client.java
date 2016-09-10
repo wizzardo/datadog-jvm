@@ -15,4 +15,12 @@ public interface Client {
     void gauge(String metric, long value, String[] tags);
 
     void gauge(String metric, long value);
+
+    void increment(String metric, String[] tags);
+
+    void decrement(String metric, String[] tags);
+
+    void count(String metric, long value, String[] tags);
+
+    void set(String metric, String value, String[] tags);
 }

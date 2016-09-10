@@ -42,4 +42,24 @@ public class DatadogClient implements Client {
     public void gauge(String metric, long value) {
         client.gauge(metric, value);
     }
+
+    @Override
+    public void increment(String metric, String[] tags) {
+        client.increment(metric, tags);
+    }
+
+    @Override
+    public void decrement(String metric, String[] tags) {
+        client.decrement(metric, tags);
+    }
+
+    @Override
+    public void count(String metric, long value, String[] tags) {
+        client.count(metric, value, tags);
+    }
+
+    @Override
+    public void set(String metric, String value, String[] tags) {
+        client.recordSetValue(metric, value, tags);
+    }
 }
