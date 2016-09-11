@@ -2,6 +2,7 @@ package com.wizzardo.metrics;
 
 import com.wizzardo.tools.cache.Cache;
 import com.wizzardo.tools.collections.flow.Filter;
+import com.wizzardo.tools.misc.Supplier;
 
 import java.lang.management.*;
 import java.util.*;
@@ -12,10 +13,10 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class JvmMonitoring {
 
-    private Recorder recorder;
-
-    private Cache<String, Recordable> cache;
-    private Profiler profiler;
+    protected Recorder recorder;
+    protected Cache<String, Recordable> cache;
+    protected Profiler profiler;
+    protected volatile boolean profilerEnabled = true;
 
     public JvmMonitoring(Recorder recorder) {
         this.recorder = recorder;
@@ -39,6 +40,14 @@ public class JvmMonitoring {
 
     public boolean isStarted() {
         return true;
+    }
+
+    public JvmMonitoring setProfilerEnabled(Boolean profilerEnabled) {
+        this.profilerEnabled = profilerEnabled;
+        if (!profilerEnabled && profiler != null) {
+            profiler.stopProfiling();
+        }
+        return this;
     }
 
     public void init() {
@@ -106,7 +115,7 @@ public class JvmMonitoring {
         });
 
         com.sun.management.ThreadMXBean threadMXBean = (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
-        if (threadMXBean.isThreadAllocatedMemorySupported() && threadMXBean.isThreadAllocatedMemoryEnabled() && threadMXBean.isThreadCpuTimeSupported() && threadMXBean.isThreadCpuTimeEnabled()) {
+        if (profilerEnabled && threadMXBean.isThreadAllocatedMemorySupported() && threadMXBean.isThreadAllocatedMemoryEnabled() && threadMXBean.isThreadCpuTimeSupported() && threadMXBean.isThreadCpuTimeEnabled()) {
             profiler = new Profiler(recorder);
             profiler.addFilter(new Filter<StackTraceElement>() {
                 @Override
@@ -115,7 +124,12 @@ public class JvmMonitoring {
                 }
             });
             profiler.start();
-            cache.put("threading", new ThreadsStats(threadMXBean, profiler));
+            cache.put("threading", new ThreadsStats(threadMXBean, profiler, new Supplier<Boolean>() {
+                @Override
+                public Boolean supply() {
+                    return profilerEnabled;
+                }
+            }));
         }
     }
 
@@ -259,6 +273,10 @@ public class JvmMonitoring {
             profilingThreads.remove(id);
         }
 
+        public void stopProfiling() {
+            profilingThreads.clear();
+        }
+
         public void addFilter(Filter<StackTraceElement> filter) {
             filters.add(filter);
         }
@@ -320,6 +338,7 @@ public class JvmMonitoring {
         Profiler profiler;
         Map<Long, TInfo> threads = new HashMap<>(32, 1);
         int tickCounter = 0;
+        Supplier<Boolean> profilerEnabledSupplier;
 
         @Override
         public boolean isValid() {
@@ -339,9 +358,10 @@ public class JvmMonitoring {
             Recorder.Tags tags;
         }
 
-        public ThreadsStats(com.sun.management.ThreadMXBean threadMXBean, Profiler profiler) {
+        public ThreadsStats(com.sun.management.ThreadMXBean threadMXBean, Profiler profiler, Supplier<Boolean> profilerEnabledSupplier) {
             this.threadMXBean = threadMXBean;
             this.profiler = profiler;
+            this.profilerEnabledSupplier = profilerEnabledSupplier;
         }
 
         @Override
@@ -383,7 +403,7 @@ public class JvmMonitoring {
                     recorder.histogram("jvm.thread.cpu.user.nanos", (userTime - tInfo.userTime), tInfo.tags);
                 }
 
-                if (!tInfo.profilingDisabled) {
+                if (profilerEnabledSupplier.supply() && !tInfo.profilingDisabled) {
                     if (tInfo.lastRecord != 0 && (cpuTime - tInfo.cpuTime) * 100d / (now - tInfo.lastRecord) >= 5) {
                         if (!tInfo.profiling) {
                             profiler.startProfiling(tInfo.id);
