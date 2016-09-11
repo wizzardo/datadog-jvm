@@ -112,11 +112,11 @@ public class Recorder {
         List<String> tags = new ArrayList<>();
         String[] build;
 
-        public static Tags of(String key, String value) {
+        public static Tags of(String key, Object value) {
             return new Tags().add(key, value);
         }
 
-        public static Tags of(String key, String value, String... moreTags) {
+        public static Tags of(String key, Object value, String... moreTags) {
             Tags tags = new Tags();
             tags.add(key, value);
             if (moreTags != null) {
@@ -130,9 +130,9 @@ public class Recorder {
             return tags;
         }
 
-        public Tags add(String key, String value) {
+        public Tags add(String key, Object value) {
             if (key != null && value != null)
-                tags.add(prepare(key) + ":" + prepare(value));
+                tags.add(prepare(key) + ":" + prepare(String.valueOf(value)));
 
             return this;
         }
