@@ -12,6 +12,9 @@ import java.util.concurrent.Callable;
  * Created by wizzardo on 05/09/16.
  */
 public class Recorder {
+    public static final String ACTION_DURATION = "actionDuration";
+    public static final String METHOD_DURATION = "methodDuration";
+
     protected final String[] EMPTY_ARRAY = new String[0];
     private Client client;
     private Consumer<Exception> onError = new Consumer<Exception>() {
@@ -25,6 +28,14 @@ public class Recorder {
         this.client = client;
     }
 
+    public void rec(Runnable runnable) {
+        rec(METHOD_DURATION, runnable);
+    }
+
+    public void rec(Runnable runnable, Tags tags) {
+        rec(METHOD_DURATION, runnable, tags);
+    }
+
     public void rec(String metric, Runnable runnable) {
         rec(metric, runnable, null);
     }
@@ -34,6 +45,14 @@ public class Recorder {
         runnable.run();
         time = System.currentTimeMillis() - time;
         rec(metric, time, tags);
+    }
+
+    public <T> T rec(Callable<T> callable) {
+        return rec(METHOD_DURATION, callable);
+    }
+
+    public <T> T rec(Callable<T> callable, Tags tags) {
+        return rec(METHOD_DURATION, callable, tags);
     }
 
     public <T> T rec(String metric, Callable<T> callable) {
