@@ -32,7 +32,7 @@ public class JvmMonitoring {
         this.recorder = recorder;
     }
 
-    interface Recordable {
+    public interface Recordable {
         void record(Recorder recorder);
 
         boolean isValid();
