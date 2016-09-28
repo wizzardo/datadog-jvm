@@ -149,6 +149,21 @@ public class JvmMonitoring {
         }
     }
 
+    public static ThreadGroup threadGroup(long threadId) {
+        ThreadGroup group = Thread.currentThread().getThreadGroup();
+        while (group.getParent() != null)
+            group = group.getParent();
+
+        Thread[] arr = new Thread[group.activeCount()];
+        int l = group.enumerate(arr);
+        for (int i = 0; i < l; i++) {
+            if (arr[i].getId() == threadId)
+                return arr[i].getThreadGroup();
+        }
+
+        return group;
+    }
+
     static public class Profiler extends Thread {
 
         Recorder recorder;
@@ -210,7 +225,7 @@ public class JvmMonitoring {
                             if (!filter(element))
                                 continue;
 
-                            StackTraceEntry stackTraceEntry = new StackTraceEntry(threadInfo.getThreadName(), element.getClassName(), element.getMethodName(), length - i);
+                            StackTraceEntry stackTraceEntry = new StackTraceEntry(threadInfo.getThreadName(), threadGroup(threadInfo.getThreadId()).getName(), element.getClassName(), element.getMethodName(), length - i);
                             Counter counter = samples.get(stackTraceEntry);
                             if (counter == null) {
                                 samples.put(stackTraceEntry, counter = new Counter());
@@ -226,6 +241,7 @@ public class JvmMonitoring {
                         recorder.gauge("jvm.profiler.ste", mapEntry.getValue().get(),
                                 Recorder.Tags.of(
                                         "thread", mapEntry.getKey().thread,
+                                        "group", mapEntry.getKey().group,
                                         "entry", mapEntry.getKey().depth + "-" + mapEntry.getKey().declaringClass + "." + mapEntry.getKey().methodName
                                 ));
                     }
@@ -287,12 +303,14 @@ public class JvmMonitoring {
 
         public static class StackTraceEntry implements Comparable<StackTraceEntry> {
             public final String thread;
+            public final String group;
             public final String declaringClass;
             public final String methodName;
             public final int depth;
 
-            StackTraceEntry(String thread, String declaringClass, String methodName, int depth) {
+            StackTraceEntry(String thread, String group, String declaringClass, String methodName, int depth) {
                 this.thread = thread;
+                this.group = group;
                 this.declaringClass = declaringClass;
                 this.methodName = methodName;
                 this.depth = depth;
@@ -347,6 +365,7 @@ public class JvmMonitoring {
 
         static class TInfo {
             String name;
+            String group;
             long id;
             long bytesAllocated;
             long cpuTime;
@@ -392,7 +411,8 @@ public class JvmMonitoring {
                     tInfo.id = id;
                     threads.put(id, tInfo);
                     tInfo.name = threadMXBean.getThreadInfo(tInfo.id).getThreadName();
-                    tInfo.tags = Recorder.Tags.of("thread", tInfo.name, "id", String.valueOf(id));
+                    tInfo.group = threadGroup(id).getName();
+                    tInfo.tags = Recorder.Tags.of("thread", tInfo.name, "group", tInfo.group, "id", String.valueOf(id));
                     if (tInfo.name.equals("DestroyJavaVM") || tInfo.name.equals("Profiler"))
                         tInfo.profilingDisabled = true;
                 } else {
