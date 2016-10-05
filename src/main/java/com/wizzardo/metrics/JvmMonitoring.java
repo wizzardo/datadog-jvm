@@ -115,15 +115,19 @@ public class JvmMonitoring {
         });
 
         com.sun.management.ThreadMXBean threadMXBean = (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
-        if (profilerEnabled && threadMXBean.isThreadAllocatedMemorySupported() && threadMXBean.isThreadAllocatedMemoryEnabled() && threadMXBean.isThreadCpuTimeSupported() && threadMXBean.isThreadCpuTimeEnabled()) {
-            profiler = new Profiler(recorder);
-            profiler.addFilter(new Filter<StackTraceElement>() {
-                @Override
-                public boolean allow(StackTraceElement stackTraceElement) {
-                    return stackTraceElement.getClassName().startsWith("com.wizzardo.");
-                }
-            });
-            profiler.start();
+        if (threadMXBean.isThreadAllocatedMemorySupported() && threadMXBean.isThreadAllocatedMemoryEnabled()
+                && threadMXBean.isThreadCpuTimeSupported() && threadMXBean.isThreadCpuTimeEnabled()) {
+            if (profilerEnabled) {
+                profiler = new Profiler(recorder);
+                profiler.addFilter(new Filter<StackTraceElement>() {
+                    @Override
+                    public boolean allow(StackTraceElement stackTraceElement) {
+                        return stackTraceElement.getClassName().startsWith("com.wizzardo.");
+                    }
+                });
+                profiler.start();
+            }
+
             cache.put("threading", new ThreadsStats(threadMXBean, profiler, new Supplier<Boolean>() {
                 @Override
                 public Boolean supply() {
