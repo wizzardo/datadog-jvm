@@ -1,12 +1,14 @@
 package com.wizzardo.metrics;
 
 import com.wizzardo.tools.cache.Cache;
+import com.wizzardo.tools.collections.Pair;
 import com.wizzardo.tools.collections.flow.Filter;
 import com.wizzardo.tools.misc.Supplier;
 
 import java.lang.management.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * Created by wizzardo on 06/09/16.
@@ -17,6 +19,7 @@ public class JvmMonitoring {
     protected Cache<String, Recordable> cache;
     protected Profiler profiler;
     protected volatile boolean profilerEnabled = true;
+    protected Queue<Pair<Filter<String>,String>> customThreadGroupNames = new ConcurrentLinkedQueue<>();
 
     public JvmMonitoring(Recorder recorder) {
         this.recorder = recorder;
@@ -40,6 +43,11 @@ public class JvmMonitoring {
 
     public boolean isStarted() {
         return true;
+    }
+
+    public JvmMonitoring addCustomThreadGroupNameResolver(Filter<String> filter, String groupName) {
+        customThreadGroupNames.add(new Pair<Filter<String>, String>(filter, groupName));
+        return this;
     }
 
     public JvmMonitoring setProfilerEnabled(Boolean profilerEnabled) {
@@ -128,13 +136,16 @@ public class JvmMonitoring {
                 profiler.start();
             }
 
-            cache.put("threading", new ThreadsStats(threadMXBean, profiler, new Supplier<Boolean>() {
-                @Override
-                public Boolean supply() {
-                    return profilerEnabled;
-                }
-            }));
+            cache.put("threading", new ThreadsStats(threadMXBean, profiler, this));
         }
+    }
+
+    public String resolveThreadGroupName(String threadName, String actualThreadGroupName) {
+        for (Pair<Filter<String>, String> filterStringPair : customThreadGroupNames) {
+            if (filterStringPair.key.allow(threadName))
+                return filterStringPair.value;
+        }
+        return actualThreadGroupName;
     }
 
     public Profiler getProfiler() {
@@ -360,7 +371,7 @@ public class JvmMonitoring {
         Profiler profiler;
         Map<Long, TInfo> threads = new HashMap<>(32, 1);
         int tickCounter = 0;
-        Supplier<Boolean> profilerEnabledSupplier;
+        JvmMonitoring jvmMonitoring;
 
         @Override
         public boolean isValid() {
@@ -381,10 +392,10 @@ public class JvmMonitoring {
             Recorder.Tags tags;
         }
 
-        public ThreadsStats(com.sun.management.ThreadMXBean threadMXBean, Profiler profiler, Supplier<Boolean> profilerEnabledSupplier) {
+        public ThreadsStats(com.sun.management.ThreadMXBean threadMXBean, Profiler profiler, JvmMonitoring jvmMonitoring) {
             this.threadMXBean = threadMXBean;
             this.profiler = profiler;
-            this.profilerEnabledSupplier = profilerEnabledSupplier;
+            this.jvmMonitoring = jvmMonitoring;
         }
 
         @Override
@@ -416,6 +427,9 @@ public class JvmMonitoring {
                     threads.put(id, tInfo);
                     tInfo.name = threadMXBean.getThreadInfo(tInfo.id).getThreadName();
                     tInfo.group = threadGroup(id).getName();
+                    if ("main".equalsIgnoreCase(tInfo.group) || "system".equalsIgnoreCase(tInfo.group))
+                        tInfo.group = jvmMonitoring.resolveThreadGroupName(tInfo.name, tInfo.group);
+
                     tInfo.tags = Recorder.Tags.of("thread", tInfo.name, "group", tInfo.group, "id", String.valueOf(id));
                     if (tInfo.name.equals("DestroyJavaVM") || tInfo.name.equals("Profiler"))
                         tInfo.profilingDisabled = true;
@@ -427,7 +441,7 @@ public class JvmMonitoring {
                     recorder.histogram("jvm.thread.cpu.user.nanos", (userTime - tInfo.userTime), tInfo.tags);
                 }
 
-                if (profilerEnabledSupplier.supply() && !tInfo.profilingDisabled) {
+                if (jvmMonitoring.profilerEnabled && !tInfo.profilingDisabled) {
                     if (tInfo.lastRecord != 0 && (cpuTime - tInfo.cpuTime) * 100d / (now - tInfo.lastRecord) >= 5) {
                         if (!tInfo.profiling) {
                             profiler.startProfiling(tInfo.id);
