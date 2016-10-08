@@ -3,7 +3,6 @@ package com.wizzardo.metrics;
 import com.wizzardo.tools.cache.Cache;
 import com.wizzardo.tools.collections.Pair;
 import com.wizzardo.tools.collections.flow.Filter;
-import com.wizzardo.tools.misc.Supplier;
 
 import java.lang.management.*;
 import java.util.*;
@@ -19,7 +18,31 @@ public class JvmMonitoring {
     protected Cache<String, Recordable> cache;
     protected Profiler profiler;
     protected volatile boolean profilerEnabled = true;
-    protected Queue<Pair<Filter<String>,String>> customThreadGroupNames = new ConcurrentLinkedQueue<>();
+    protected Queue<Pair<Filter<String>, String>> customThreadGroupNames = new ConcurrentLinkedQueue<>();
+    protected int interval = 10;
+    protected String metricJvmMemoryFree = "jvm.memory.free";
+    protected String metricJvmMemoryTotal = "jvm.memory.total";
+    protected String metricJvmMemoryUsed = "jvm.memory.used";
+    protected String metricJvmMemoryMax = "jvm.memory.max";
+    protected String metricJvmGcCountTotal = "jvm.gc.countTotal";
+    protected String metricJvmGcTimeTotal = "jvm.gc.timeTotal";
+    protected String metricJvmGcCount = "jvm.gc.count";
+    protected String metricJvmGcTime = "jvm.gc.time";
+    protected String metricJvmClassesLoaded = "jvm.classes.loaded";
+    protected String metricJvmTotal = "jvm.classes.total";
+    protected String metricJvmClassesUnloaded = "jvm.classes.unloaded";
+    protected String metricJvmCompilationTime = "jvm.compilation.time";
+    protected String metricJvmThreadAlive = "jvm.thread.alive";
+    protected String metricJvmProfilerStackTraceEntry = "jvm.profiler.ste";
+    protected String metricJvmThreadAllocation = "jvm.thread.allocation";
+    protected String metricJvmThreadCpu = "jvm.thread.cpu";
+    protected String metricJvmThreadCpuUser = "jvm.thread.cpu.user";
+    protected String metricJvmThreadCpuNanos = "jvm.thread.cpu.nanos";
+    protected String metricJvmThreadCpuUserNanos = "jvm.thread.cpu.user.nanos";
+    protected String metricJvmMemoryPoolCommitted = "jvm.mp.committed";
+    protected String metricJvmMemoryPoolInit = "jvm.mp.init";
+    protected String metricJvmMemoryPoolMax = "jvm.mp.max";
+    protected String metricJvmMemoryPoolUsed = "jvm.mp.used";
 
     public JvmMonitoring(Recorder recorder) {
         this.recorder = recorder;
@@ -59,7 +82,7 @@ public class JvmMonitoring {
     }
 
     public void init() {
-        cache = new Cache<String, Recordable>(10) {
+        cache = new Cache<String, Recordable>(interval) {
             @Override
             public void onRemoveItem(String name, Recordable recordable) {
                 recordable.record(recorder);
@@ -69,7 +92,7 @@ public class JvmMonitoring {
         };
 
         for (GarbageCollectorMXBean gc : ManagementFactory.getGarbageCollectorMXBeans()) {
-            cache.put(gc.getName(), new GcStats(gc));
+            cache.put(gc.getName(), new GcStats(gc, this));
         }
 
         cache.put("jvm.memory", new Recordable() {
@@ -78,10 +101,10 @@ public class JvmMonitoring {
                 Runtime rt = Runtime.getRuntime();
                 long freeMemory = rt.freeMemory();
                 long totalMemory = rt.totalMemory();
-                recorder.gauge("jvm.memory.free", freeMemory);
-                recorder.gauge("jvm.memory.total", totalMemory);
-                recorder.gauge("jvm.memory.used", totalMemory - freeMemory);
-                recorder.gauge("jvm.memory.max", rt.maxMemory());
+                recorder.gauge(metricJvmMemoryFree, freeMemory);
+                recorder.gauge(metricJvmMemoryTotal, totalMemory);
+                recorder.gauge(metricJvmMemoryUsed, totalMemory - freeMemory);
+                recorder.gauge(metricJvmMemoryMax, rt.maxMemory());
             }
 
             @Override
@@ -91,16 +114,16 @@ public class JvmMonitoring {
         });
 
         for (MemoryPoolMXBean memoryMXBean : ManagementFactory.getMemoryPoolMXBeans()) {
-            cache.put(memoryMXBean.getName(), new MemoryStats(memoryMXBean));
+            cache.put(memoryMXBean.getName(), new MemoryStats(memoryMXBean, this));
         }
 
         final ClassLoadingMXBean classLoadingMXBean = ManagementFactory.getClassLoadingMXBean();
         cache.put("classLoading", new Recordable() {
             @Override
             public void record(Recorder recorder) {
-                recorder.gauge("jvm.classes.loaded", classLoadingMXBean.getLoadedClassCount());
-                recorder.gauge("jvm.classes.total", classLoadingMXBean.getTotalLoadedClassCount());
-                recorder.gauge("jvm.classes.unloaded", classLoadingMXBean.getUnloadedClassCount());
+                recorder.gauge(metricJvmClassesLoaded, classLoadingMXBean.getLoadedClassCount());
+                recorder.gauge(metricJvmTotal, classLoadingMXBean.getTotalLoadedClassCount());
+                recorder.gauge(metricJvmClassesUnloaded, classLoadingMXBean.getUnloadedClassCount());
             }
 
             @Override
@@ -113,7 +136,7 @@ public class JvmMonitoring {
         cache.put("compilation", new Recordable() {
             @Override
             public void record(Recorder recorder) {
-                recorder.gauge("jvm.compilation.time", compilationMXBean.getTotalCompilationTime());
+                recorder.gauge(metricJvmCompilationTime, compilationMXBean.getTotalCompilationTime());
             }
 
             @Override
@@ -126,7 +149,7 @@ public class JvmMonitoring {
         if (threadMXBean.isThreadAllocatedMemorySupported() && threadMXBean.isThreadAllocatedMemoryEnabled()
                 && threadMXBean.isThreadCpuTimeSupported() && threadMXBean.isThreadCpuTimeEnabled()) {
             if (profilerEnabled) {
-                profiler = new Profiler(recorder);
+                profiler = createProfiler();
                 profiler.addFilter(new Filter<StackTraceElement>() {
                     @Override
                     public boolean allow(StackTraceElement stackTraceElement) {
@@ -138,6 +161,10 @@ public class JvmMonitoring {
 
             cache.put("threading", new ThreadsStats(threadMXBean, profiler, this));
         }
+    }
+
+    protected Profiler createProfiler() {
+        return new Profiler(recorder, this);
     }
 
     public String resolveThreadGroupName(String threadName, String actualThreadGroupName) {
@@ -152,7 +179,7 @@ public class JvmMonitoring {
         return profiler;
     }
 
-    static class Counter {
+    public static class Counter {
         int value = 0;
 
         public void increment() {
@@ -187,11 +214,13 @@ public class JvmMonitoring {
         Set<Filter<StackTraceElement>> filters = Collections.newSetFromMap(new ConcurrentHashMap<Filter<StackTraceElement>, Boolean>());
         volatile int pause = 5;
         volatile int cycles = 1;
+        JvmMonitoring jvmMonitoring;
 
-        public Profiler(Recorder recorder) {
+        public Profiler(Recorder recorder, JvmMonitoring jvmMonitoring) {
             super("Profiler");
-            threadMXBean = ManagementFactory.getThreadMXBean();
+            this.jvmMonitoring = jvmMonitoring;
             this.recorder = recorder;
+            threadMXBean = ManagementFactory.getThreadMXBean();
             setDaemon(true);
         }
 
@@ -252,13 +281,8 @@ public class JvmMonitoring {
 
                 time = System.nanoTime();
                 if (time >= nextPrint) {
-                    for (Map.Entry<StackTraceEntry, Counter> mapEntry : samples.entrySet()) {
-                        recorder.gauge("jvm.profiler.ste", mapEntry.getValue().get(),
-                                Recorder.Tags.of(
-                                        "thread", mapEntry.getKey().thread,
-                                        "group", mapEntry.getKey().group,
-                                        "entry", mapEntry.getKey().depth + "-" + mapEntry.getKey().declaringClass + "." + mapEntry.getKey().methodName
-                                ));
+                    for (Map.Entry<StackTraceEntry, Counter> mapEntry : filter(samples.entrySet())) {
+                        recorder.gauge(jvmMonitoring.metricJvmProfilerStackTraceEntry, mapEntry.getValue().get(), jvmMonitoring.getTags(mapEntry.getKey()));
                     }
                     samples.clear();
                     ids = getThreadsToProfile();
@@ -267,6 +291,10 @@ public class JvmMonitoring {
                     nextPrint = getNextPrintTime();
                 }
             }
+        }
+
+        protected Iterable<Map.Entry<StackTraceEntry, Counter>> filter(Set<Map.Entry<StackTraceEntry, Counter>> samples) {
+            return samples;
         }
 
         private long[] getThreadsToProfile() {
@@ -366,7 +394,7 @@ public class JvmMonitoring {
         }
     }
 
-    static class ThreadsStats implements Recordable {
+    public static class ThreadsStats implements Recordable {
         com.sun.management.ThreadMXBean threadMXBean;
         Profiler profiler;
         Map<Long, TInfo> threads = new HashMap<>(32, 1);
@@ -378,7 +406,7 @@ public class JvmMonitoring {
             return true;
         }
 
-        static class TInfo {
+        public static class TInfo {
             String name;
             String group;
             long id;
@@ -408,7 +436,7 @@ public class JvmMonitoring {
             long[] threadCpuTime = threadMXBean.getThreadCpuTime(ids);
             long now = System.nanoTime();
 
-            recorder.gauge("jvm.thread.alive", ids.length);
+            recorder.gauge(jvmMonitoring.metricJvmThreadAlive, ids.length);
 
             for (int i = 0; i < ids.length; i++) {
                 long id = ids[i];
@@ -430,15 +458,15 @@ public class JvmMonitoring {
                     if ("main".equalsIgnoreCase(tInfo.group) || "system".equalsIgnoreCase(tInfo.group))
                         tInfo.group = jvmMonitoring.resolveThreadGroupName(tInfo.name, tInfo.group);
 
-                    tInfo.tags = Recorder.Tags.of("thread", tInfo.name, "group", tInfo.group, "id", String.valueOf(id));
+                    tInfo.tags = jvmMonitoring.getTags(tInfo);
                     if (tInfo.name.equals("DestroyJavaVM") || tInfo.name.equals("Profiler"))
                         tInfo.profilingDisabled = true;
                 } else {
-                    recorder.histogram("jvm.thread.allocation", bytesAllocated - tInfo.bytesAllocated, tInfo.tags);
-                    recorder.histogram("jvm.thread.cpu", (cpuTime - tInfo.cpuTime) * 100d / (now - tInfo.lastRecord), tInfo.tags);
-                    recorder.histogram("jvm.thread.cpu.user", (userTime - tInfo.userTime) * 100d / (now - tInfo.lastRecord), tInfo.tags);
-                    recorder.histogram("jvm.thread.cpu.nanos", (cpuTime - tInfo.cpuTime), tInfo.tags);
-                    recorder.histogram("jvm.thread.cpu.user.nanos", (userTime - tInfo.userTime), tInfo.tags);
+                    recorder.histogram(jvmMonitoring.metricJvmThreadAllocation, bytesAllocated - tInfo.bytesAllocated, tInfo.tags);
+                    recorder.histogram(jvmMonitoring.metricJvmThreadCpu, (cpuTime - tInfo.cpuTime) * 100d / (now - tInfo.lastRecord), tInfo.tags);
+                    recorder.histogram(jvmMonitoring.metricJvmThreadCpuUser, (userTime - tInfo.userTime) * 100d / (now - tInfo.lastRecord), tInfo.tags);
+                    recorder.histogram(jvmMonitoring.metricJvmThreadCpuNanos, (cpuTime - tInfo.cpuTime), tInfo.tags);
+                    recorder.histogram(jvmMonitoring.metricJvmThreadCpuUserNanos, (userTime - tInfo.userTime), tInfo.tags);
                 }
 
                 if (jvmMonitoring.profilerEnabled && !tInfo.profilingDisabled) {
@@ -478,10 +506,12 @@ public class JvmMonitoring {
         private volatile long collectionCount;
         private volatile long collectionTime;
         private Recorder.Tags tags;
+        private JvmMonitoring jvmMonitoring;
 
-        public GcStats(GarbageCollectorMXBean collector) {
+        public GcStats(GarbageCollectorMXBean collector, JvmMonitoring jvmMonitoring) {
             this.collector = collector;
-            tags = Recorder.Tags.of("gc", collector.getName());
+            this.jvmMonitoring = jvmMonitoring;
+            tags = jvmMonitoring.getTags(collector);
         }
 
         public synchronized long getCollectionCountDiff() {
@@ -500,10 +530,10 @@ public class JvmMonitoring {
 
         @Override
         public void record(Recorder recorder) {
-            recorder.gauge("jvm.gc.countTotal", collector.getCollectionCount(), tags);
-            recorder.gauge("jvm.gc.timeTotal", collector.getCollectionTime(), tags);
-            recorder.gauge("jvm.gc.count", getCollectionCountDiff(), tags);
-            recorder.rec("jvm.gc.time", getCollectionTimeDiff(), tags);
+            recorder.gauge(jvmMonitoring.metricJvmGcCountTotal, collector.getCollectionCount(), tags);
+            recorder.gauge(jvmMonitoring.metricJvmGcTimeTotal, collector.getCollectionTime(), tags);
+            recorder.gauge(jvmMonitoring.metricJvmGcCount, getCollectionCountDiff(), tags);
+            recorder.rec(jvmMonitoring.metricJvmGcTime, getCollectionTimeDiff(), tags);
         }
 
         @Override
@@ -516,10 +546,12 @@ public class JvmMonitoring {
 
         private MemoryPoolMXBean memoryPool;
         private Recorder.Tags tags;
+        private JvmMonitoring jvmMonitoring;
 
-        public MemoryStats(MemoryPoolMXBean memoryPool) {
+        public MemoryStats(MemoryPoolMXBean memoryPool, JvmMonitoring jvmMonitoring) {
             this.memoryPool = memoryPool;
-            tags = Recorder.Tags.of("memoryPool", memoryPool.getName());
+            this.jvmMonitoring = jvmMonitoring;
+            tags = jvmMonitoring.getTags(memoryPool);
         }
 
         @Override
@@ -527,15 +559,231 @@ public class JvmMonitoring {
             if (!isValid())
                 return;
 
-            recorder.gauge("jvm.mp.committed", memoryPool.getUsage().getCommitted(), tags);
-            recorder.gauge("jvm.mp.init", memoryPool.getUsage().getInit(), tags);
-            recorder.gauge("jvm.mp.max", memoryPool.getUsage().getMax(), tags);
-            recorder.gauge("jvm.mp.used", memoryPool.getUsage().getUsed(), tags);
+            recorder.gauge(jvmMonitoring.metricJvmMemoryPoolCommitted, memoryPool.getUsage().getCommitted(), tags);
+            recorder.gauge(jvmMonitoring.metricJvmMemoryPoolInit, memoryPool.getUsage().getInit(), tags);
+            recorder.gauge(jvmMonitoring.metricJvmMemoryPoolMax, memoryPool.getUsage().getMax(), tags);
+            recorder.gauge(jvmMonitoring.metricJvmMemoryPoolUsed, memoryPool.getUsage().getUsed(), tags);
         }
 
         @Override
         public boolean isValid() {
             return memoryPool.isValid();
         }
+    }
+
+    protected Recorder.Tags getTags(GarbageCollectorMXBean collector) {
+        return Recorder.Tags.of("gc", collector.getName());
+    }
+
+    protected Recorder.Tags getTags(MemoryPoolMXBean memoryPool) {
+        return Recorder.Tags.of("memoryPool", memoryPool.getName());
+    }
+
+    protected Recorder.Tags getTags(Profiler.StackTraceEntry ste) {
+        return Recorder.Tags.of(
+                "thread", ste.thread,
+                "group", ste.group,
+                "entry", ste.depth + "-" + ste.declaringClass + "." + ste.methodName
+        );
+    }
+
+    protected Recorder.Tags getTags(ThreadsStats.TInfo info) {
+        return Recorder.Tags.of("thread", info.name, "group", info.group, "id", String.valueOf(info.id));
+    }
+
+    public boolean isProfilerEnabled() {
+        return profilerEnabled;
+    }
+
+    public int getInterval() {
+        return interval;
+    }
+
+    public void setInterval(int interval) {
+        this.interval = interval;
+    }
+
+    public String getMetricJvmMemoryFree() {
+        return metricJvmMemoryFree;
+    }
+
+    public void setMetricJvmMemoryFree(String metricJvmMemoryFree) {
+        this.metricJvmMemoryFree = metricJvmMemoryFree;
+    }
+
+    public String getMetricJvmMemoryTotal() {
+        return metricJvmMemoryTotal;
+    }
+
+    public void setMetricJvmMemoryTotal(String metricJvmMemoryTotal) {
+        this.metricJvmMemoryTotal = metricJvmMemoryTotal;
+    }
+
+    public String getMetricJvmMemoryUsed() {
+        return metricJvmMemoryUsed;
+    }
+
+    public void setMetricJvmMemoryUsed(String metricJvmMemoryUsed) {
+        this.metricJvmMemoryUsed = metricJvmMemoryUsed;
+    }
+
+    public String getMetricJvmMemoryMax() {
+        return metricJvmMemoryMax;
+    }
+
+    public void setMetricJvmMemoryMax(String metricJvmMemoryMax) {
+        this.metricJvmMemoryMax = metricJvmMemoryMax;
+    }
+
+    public String getMetricJvmGcCountTotal() {
+        return metricJvmGcCountTotal;
+    }
+
+    public void setMetricJvmGcCountTotal(String metricJvmGcCountTotal) {
+        this.metricJvmGcCountTotal = metricJvmGcCountTotal;
+    }
+
+    public String getMetricJvmGcTimeTotal() {
+        return metricJvmGcTimeTotal;
+    }
+
+    public void setMetricJvmGcTimeTotal(String metricJvmGcTimeTotal) {
+        this.metricJvmGcTimeTotal = metricJvmGcTimeTotal;
+    }
+
+    public String getMetricJvmGcCount() {
+        return metricJvmGcCount;
+    }
+
+    public void setMetricJvmGcCount(String metricJvmGcCount) {
+        this.metricJvmGcCount = metricJvmGcCount;
+    }
+
+    public String getMetricJvmGcTime() {
+        return metricJvmGcTime;
+    }
+
+    public void setMetricJvmGcTime(String metricJvmGcTime) {
+        this.metricJvmGcTime = metricJvmGcTime;
+    }
+
+    public String getMetricJvmClassesLoaded() {
+        return metricJvmClassesLoaded;
+    }
+
+    public void setMetricJvmClassesLoaded(String metricJvmClassesLoaded) {
+        this.metricJvmClassesLoaded = metricJvmClassesLoaded;
+    }
+
+    public String getMetricJvmTotal() {
+        return metricJvmTotal;
+    }
+
+    public void setMetricJvmTotal(String metricJvmTotal) {
+        this.metricJvmTotal = metricJvmTotal;
+    }
+
+    public String getMetricJvmClassesUnloaded() {
+        return metricJvmClassesUnloaded;
+    }
+
+    public void setMetricJvmClassesUnloaded(String metricJvmClassesUnloaded) {
+        this.metricJvmClassesUnloaded = metricJvmClassesUnloaded;
+    }
+
+    public String getMetricJvmCompilationTime() {
+        return metricJvmCompilationTime;
+    }
+
+    public void setMetricJvmCompilationTime(String metricJvmCompilationTime) {
+        this.metricJvmCompilationTime = metricJvmCompilationTime;
+    }
+
+    public String getMetricJvmThreadAlive() {
+        return metricJvmThreadAlive;
+    }
+
+    public void setMetricJvmThreadAlive(String metricJvmThreadAlive) {
+        this.metricJvmThreadAlive = metricJvmThreadAlive;
+    }
+
+    public String getMetricJvmProfilerStackTraceEntry() {
+        return metricJvmProfilerStackTraceEntry;
+    }
+
+    public void setMetricJvmProfilerStackTraceEntry(String metricJvmProfilerStackTraceEntry) {
+        this.metricJvmProfilerStackTraceEntry = metricJvmProfilerStackTraceEntry;
+    }
+
+    public String getMetricJvmThreadAllocation() {
+        return metricJvmThreadAllocation;
+    }
+
+    public void setMetricJvmThreadAllocation(String metricJvmThreadAllocation) {
+        this.metricJvmThreadAllocation = metricJvmThreadAllocation;
+    }
+
+    public String getMetricJvmThreadCpu() {
+        return metricJvmThreadCpu;
+    }
+
+    public void setMetricJvmThreadCpu(String metricJvmThreadCpu) {
+        this.metricJvmThreadCpu = metricJvmThreadCpu;
+    }
+
+    public String getMetricJvmThreadCpuUser() {
+        return metricJvmThreadCpuUser;
+    }
+
+    public void setMetricJvmThreadCpuUser(String metricJvmThreadCpuUser) {
+        this.metricJvmThreadCpuUser = metricJvmThreadCpuUser;
+    }
+
+    public String getMetricJvmThreadCpuNanos() {
+        return metricJvmThreadCpuNanos;
+    }
+
+    public void setMetricJvmThreadCpuNanos(String metricJvmThreadCpuNanos) {
+        this.metricJvmThreadCpuNanos = metricJvmThreadCpuNanos;
+    }
+
+    public String getMetricJvmThreadCpuUserNanos() {
+        return metricJvmThreadCpuUserNanos;
+    }
+
+    public void setMetricJvmThreadCpuUserNanos(String metricJvmThreadCpuUserNanos) {
+        this.metricJvmThreadCpuUserNanos = metricJvmThreadCpuUserNanos;
+    }
+
+    public String getMetricJvmMemoryPoolCommitted() {
+        return metricJvmMemoryPoolCommitted;
+    }
+
+    public void setMetricJvmMemoryPoolCommitted(String metricJvmMemoryPoolCommitted) {
+        this.metricJvmMemoryPoolCommitted = metricJvmMemoryPoolCommitted;
+    }
+
+    public String getMetricJvmMemoryPoolInit() {
+        return metricJvmMemoryPoolInit;
+    }
+
+    public void setMetricJvmMemoryPoolInit(String metricJvmMemoryPoolInit) {
+        this.metricJvmMemoryPoolInit = metricJvmMemoryPoolInit;
+    }
+
+    public String getMetricJvmMemoryPoolMax() {
+        return metricJvmMemoryPoolMax;
+    }
+
+    public void setMetricJvmMemoryPoolMax(String metricJvmMemoryPoolMax) {
+        this.metricJvmMemoryPoolMax = metricJvmMemoryPoolMax;
+    }
+
+    public String getMetricJvmMemoryPoolUsed() {
+        return metricJvmMemoryPoolUsed;
+    }
+
+    public void setMetricJvmMemoryPoolUsed(String metricJvmMemoryPoolUsed) {
+        this.metricJvmMemoryPoolUsed = metricJvmMemoryPoolUsed;
     }
 }
