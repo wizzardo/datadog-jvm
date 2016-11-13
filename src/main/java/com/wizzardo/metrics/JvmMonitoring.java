@@ -42,6 +42,9 @@ public class JvmMonitoring {
     protected String metricJvmMemoryPoolInit = "jvm.mp.init";
     protected String metricJvmMemoryPoolMax = "jvm.mp.max";
     protected String metricJvmMemoryPoolUsed = "jvm.mp.used";
+    protected String metricJvmBuffersCount = "jvm.buffers.count";
+    protected String metricJvmBuffersMemoryUsed = "jvm.buffers.memory_used";
+    protected String metricJvmBuffersCapacity = "jvm.buffers.capacity";
 
     public JvmMonitoring(Recorder recorder) {
         this.recorder = recorder;
@@ -111,6 +114,26 @@ public class JvmMonitoring {
                 return true;
             }
         });
+
+        List<BufferPoolMXBean> bufferPools = ManagementFactory.getPlatformMXBeans(BufferPoolMXBean.class);
+        for (final BufferPoolMXBean bufferPool : bufferPools) {
+            cache.put("jvm.buffer." + bufferPool.getName(), new Recordable() {
+
+                Recorder.Tags tags = getTags(bufferPool);
+
+                @Override
+                public void record(Recorder recorder) {
+                    recorder.gauge(metricJvmBuffersCount, bufferPool.getCount(), tags);
+                    recorder.gauge(metricJvmBuffersMemoryUsed, bufferPool.getMemoryUsed(), tags);
+                    recorder.gauge(metricJvmBuffersCapacity, bufferPool.getTotalCapacity(), tags);
+                }
+
+                @Override
+                public boolean isValid() {
+                    return true;
+                }
+            });
+        }
 
         for (MemoryPoolMXBean memoryMXBean : ManagementFactory.getMemoryPoolMXBeans()) {
             cache.put(memoryMXBean.getName(), new MemoryStats(memoryMXBean, this));
@@ -199,6 +222,10 @@ public class JvmMonitoring {
 
     protected Recorder.Tags getTags(MemoryPoolMXBean memoryPool) {
         return Recorder.Tags.of("memoryPool", memoryPool.getName());
+    }
+
+    protected Recorder.Tags getTags(BufferPoolMXBean memoryPool) {
+        return Recorder.Tags.of("buffer", memoryPool.getName());
     }
 
     protected Recorder.Tags getTags(Profiler.StackTraceEntry ste) {
@@ -407,5 +434,29 @@ public class JvmMonitoring {
 
     public void setMetricJvmMemoryPoolUsed(String metricJvmMemoryPoolUsed) {
         this.metricJvmMemoryPoolUsed = metricJvmMemoryPoolUsed;
+    }
+
+    public String getMetricJvmBuffersCount() {
+        return metricJvmBuffersCount;
+    }
+
+    public void setMetricJvmBuffersCount(String metricJvmBuffersCount) {
+        this.metricJvmBuffersCount = metricJvmBuffersCount;
+    }
+
+    public String getMetricJvmBuffersMemoryUsed() {
+        return metricJvmBuffersMemoryUsed;
+    }
+
+    public void setMetricJvmBuffersMemoryUsed(String metricJvmBuffersMemoryUsed) {
+        this.metricJvmBuffersMemoryUsed = metricJvmBuffersMemoryUsed;
+    }
+
+    public String getMetricJvmBuffersCapacity() {
+        return metricJvmBuffersCapacity;
+    }
+
+    public void setMetricJvmBuffersCapacity(String metricJvmBuffersCapacity) {
+        this.metricJvmBuffersCapacity = metricJvmBuffersCapacity;
     }
 }
