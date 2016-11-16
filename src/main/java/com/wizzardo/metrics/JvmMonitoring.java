@@ -86,7 +86,7 @@ public class JvmMonitoring {
     }
 
     public void init() {
-        cache = new Cache<String, Recordable>(interval) {
+        cache = new Cache<String, Recordable>("monitoring", interval) {
             @Override
             public void onRemoveItem(String name, Recordable recordable) {
                 recordable.record(recorder);
