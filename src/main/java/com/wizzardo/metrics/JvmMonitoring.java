@@ -1,6 +1,8 @@
 package com.wizzardo.metrics;
 
 import com.wizzardo.tools.cache.Cache;
+import com.wizzardo.tools.cache.CacheCleaner;
+import com.wizzardo.tools.cache.CacheStatistics;
 import com.wizzardo.tools.collections.Pair;
 import com.wizzardo.tools.collections.flow.Filter;
 
@@ -183,6 +185,20 @@ public class JvmMonitoring {
 
             cache.put("threading", new ThreadsStats(threadMXBean, profiler, this));
         }
+
+        CacheCleaner.addListener(new CacheCleaner.OnCacheAddedListener() {
+            @Override
+            public void onAdd(Cache c) {
+                cache.put("cache." + c.getName(), createCacheStats(c));
+            }
+        });
+        for (Cache c : CacheCleaner.iterable()) {
+            cache.put("cache." + c.getName(), createCacheStats(c));
+        }
+    }
+
+    protected CacheStats createCacheStats(Cache cache) {
+        return new CacheStats(cache.getStatistics(), this);
     }
 
     protected Profiler createProfiler() {
@@ -214,6 +230,10 @@ public class JvmMonitoring {
         }
 
         return group;
+    }
+
+    protected Recorder.Tags getTags(CacheStatistics statistics) {
+        return Recorder.Tags.of("cache", statistics.getCacheName());
     }
 
     protected Recorder.Tags getTags(GarbageCollectorMXBean collector) {
