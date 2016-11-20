@@ -9,6 +9,7 @@ import com.wizzardo.tools.collections.flow.Filter;
 import java.lang.management.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Created by wizzardo on 06/09/16.
@@ -186,14 +187,15 @@ public class JvmMonitoring {
             cache.put("threading", new ThreadsStats(threadMXBean, profiler, this));
         }
 
+        final AtomicInteger counter = new AtomicInteger(0);
         CacheCleaner.addListener(new CacheCleaner.OnCacheAddedListener() {
             @Override
             public void onAdd(Cache c) {
-                cache.put("cache." + c.getName(), createCacheStats(c));
+                cache.put("cache" + counter.incrementAndGet() + "." + c.getName(), createCacheStats(c));
             }
         });
         for (Cache c : CacheCleaner.iterable()) {
-            cache.put("cache." + c.getName(), createCacheStats(c));
+            cache.put("cache" + counter.incrementAndGet() + "." + c.getName(), createCacheStats(c));
         }
     }
 
