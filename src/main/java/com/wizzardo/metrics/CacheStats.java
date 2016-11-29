@@ -8,8 +8,12 @@ import com.wizzardo.tools.cache.MemoryLimitedCache;
  */
 public class CacheStats implements JvmMonitoring.Recordable {
 
-    protected String metricCacheGauge = "cache.gauge";
-    protected String metricCache = "cache";
+    protected String metricSize = "cache.size";
+    protected String metricHeap = "cache.heap";
+    protected String metricLatency = "cache.latency";
+    protected String metricLatencyTotal = "cache.latency.total";
+    protected String metricCount = "cache.count";
+    protected String metricCountTotal = "cache.count.total";
 
     private CacheStatistics statistics;
     private MemoryLimitedCache.CacheStatisticsWithHeapUsage statisticsWithHeapUsage;
@@ -34,17 +38,17 @@ public class CacheStats implements JvmMonitoring.Recordable {
 
         previous = new StatisticsHolder();
 
-        tagsComputeCount = jvmMonitoring.getTags(cacheStatistics).add("operation", "compute").add("metric", "count");
-        tagsComputeLatency = jvmMonitoring.getTags(cacheStatistics).add("operation", "compute").add("metric", "latency");
-        tagsGetCount = jvmMonitoring.getTags(cacheStatistics).add("operation", "get").add("metric", "count");
-        tagsGetLatency = jvmMonitoring.getTags(cacheStatistics).add("operation", "get").add("metric", "latency");
-        tagsPutCount = jvmMonitoring.getTags(cacheStatistics).add("operation", "put").add("metric", "count");
-        tagsPutLatency = jvmMonitoring.getTags(cacheStatistics).add("operation", "put").add("metric", "latency");
-        tagsRemoveCount = jvmMonitoring.getTags(cacheStatistics).add("operation", "remove").add("metric", "count");
-        tagsRemoveLatency = jvmMonitoring.getTags(cacheStatistics).add("operation", "remove").add("metric", "latency");
+        tagsComputeCount = jvmMonitoring.getTags(cacheStatistics).add("operation", "compute");
+        tagsComputeLatency = jvmMonitoring.getTags(cacheStatistics).add("operation", "compute");
+        tagsGetCount = jvmMonitoring.getTags(cacheStatistics).add("operation", "get");
+        tagsGetLatency = jvmMonitoring.getTags(cacheStatistics).add("operation", "get");
+        tagsPutCount = jvmMonitoring.getTags(cacheStatistics).add("operation", "put");
+        tagsPutLatency = jvmMonitoring.getTags(cacheStatistics).add("operation", "put");
+        tagsRemoveCount = jvmMonitoring.getTags(cacheStatistics).add("operation", "remove");
+        tagsRemoveLatency = jvmMonitoring.getTags(cacheStatistics).add("operation", "remove");
 
-        tagsSize = jvmMonitoring.getTags(cacheStatistics).add("metric", "size");
-        tagsHeap = jvmMonitoring.getTags(cacheStatistics).add("metric", "heap");
+        tagsSize = jvmMonitoring.getTags(cacheStatistics);
+        tagsHeap = jvmMonitoring.getTags(cacheStatistics);
     }
 
     static class StatisticsHolder {
@@ -63,42 +67,42 @@ public class CacheStats implements JvmMonitoring.Recordable {
         if (!isValid())
             return;
 
-        recorder.gauge(metricCacheGauge, statistics.getSize(), tagsSize);
+        recorder.gauge(metricSize, statistics.getSize(), tagsSize);
         if (statisticsWithHeapUsage != null)
-            recorder.gauge(metricCacheGauge, statisticsWithHeapUsage.getHeapUsage(), tagsHeap);
+            recorder.gauge(metricHeap, statisticsWithHeapUsage.getHeapUsage(), tagsHeap);
 
         long computeCount = statistics.getComputeCount();
         long computeLatency = statistics.getComputeLatency();
-        recorder.gauge(metricCacheGauge, computeCount, tagsComputeCount);
-        recorder.gauge(metricCacheGauge, computeLatency, tagsComputeLatency);
+        recorder.gauge(metricCountTotal, computeCount, tagsComputeCount);
+        recorder.gauge(metricLatencyTotal, computeLatency, tagsComputeLatency);
 
         long getCount = statistics.getGetCount();
         long getLatency = statistics.getGetLatency();
-        recorder.gauge(metricCacheGauge, getCount, tagsGetCount);
-        recorder.gauge(metricCacheGauge, getLatency, tagsGetLatency);
+        recorder.gauge(metricCountTotal, getCount, tagsGetCount);
+        recorder.gauge(metricLatencyTotal, getLatency, tagsGetLatency);
 
         long putCount = statistics.getPutCount();
         long putLatency = statistics.getPutLatency();
-        recorder.gauge(metricCacheGauge, putCount, tagsPutCount);
-        recorder.gauge(metricCacheGauge, putLatency, tagsPutLatency);
+        recorder.gauge(metricCountTotal, putCount, tagsPutCount);
+        recorder.gauge(metricLatencyTotal, putLatency, tagsPutLatency);
 
         long removeCount = statistics.getRemoveCount();
         long removeLatency = statistics.getRemoveLatency();
-        recorder.gauge(metricCacheGauge, removeCount, tagsRemoveCount);
-        recorder.gauge(metricCacheGauge, removeLatency, tagsRemoveLatency);
+        recorder.gauge(metricCountTotal, removeCount, tagsRemoveCount);
+        recorder.gauge(metricLatencyTotal, removeLatency, tagsRemoveLatency);
 
 
-        recorder.histogram(metricCache, computeCount - previous.computeCount, tagsComputeCount);
-        recorder.histogram(metricCache, computeLatency - previous.computeLatency, tagsComputeLatency);
+        recorder.histogram(metricCount, computeCount - previous.computeCount, tagsComputeCount);
+        recorder.histogram(metricLatency, computeLatency - previous.computeLatency, tagsComputeLatency);
 
-        recorder.histogram(metricCache, getCount - previous.getCount, tagsGetCount);
-        recorder.histogram(metricCache, getLatency - previous.getLatency, tagsGetLatency);
+        recorder.histogram(metricCount, getCount - previous.getCount, tagsGetCount);
+        recorder.histogram(metricLatency, getLatency - previous.getLatency, tagsGetLatency);
 
-        recorder.histogram(metricCache, putCount - previous.putCount, tagsPutCount);
-        recorder.histogram(metricCache, putLatency - previous.putLatency, tagsPutLatency);
+        recorder.histogram(metricCount, putCount - previous.putCount, tagsPutCount);
+        recorder.histogram(metricLatency, putLatency - previous.putLatency, tagsPutLatency);
 
-        recorder.histogram(metricCache, removeCount - previous.removeCount, tagsRemoveCount);
-        recorder.histogram(metricCache, removeLatency - previous.removeLatency, tagsRemoveLatency);
+        recorder.histogram(metricCount, removeCount - previous.removeCount, tagsRemoveCount);
+        recorder.histogram(metricLatency, removeLatency - previous.removeLatency, tagsRemoveLatency);
 
 
         previous.computeCount = computeCount;
