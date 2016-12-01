@@ -86,6 +86,12 @@ public class JvmMonitoring {
         return this;
     }
 
+    public void add(String name, Recordable recordable) {
+        boolean put = cache.putIfAbsent(name, recordable);
+        if (!put)
+            throw new IllegalStateException("Recordable with name '" + name + "' is already registered");
+    }
+
     public void init() {
         cache = new Cache<String, Recordable>("monitoring", interval) {
             @Override
