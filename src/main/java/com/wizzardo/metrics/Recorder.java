@@ -13,7 +13,10 @@ import java.util.concurrent.Callable;
  */
 public class Recorder {
     public static final String ACTION_DURATION = "actionDuration";
+    public static final String ACTION_TIME = "action.time";
     public static final String METHOD_DURATION = "methodDuration";
+    public static final String METHOD_TIME = "method.time";
+    public static final String METHOD_ALLOCATION = "method.allocation";
 
     protected final String[] EMPTY_ARRAY = new String[0];
     private Client client;
@@ -23,9 +26,14 @@ public class Recorder {
             e.printStackTrace();
         }
     };
+    protected boolean recordAllocation;
+    protected boolean recordCpuTime;
 
     public Recorder(Client client) {
         this.client = client;
+        CpuAndAllocationStats cpuAndAllocationStats = CpuAndAllocationStats.get();
+        recordCpuTime = cpuAndAllocationStats.cpuTimeEnabled;
+        recordAllocation = cpuAndAllocationStats.allocationEnabled;
     }
 
     public void rec(Runnable runnable) {
@@ -41,10 +49,64 @@ public class Recorder {
     }
 
     public void rec(String metric, Runnable runnable, Tags tags) {
-        long time = System.currentTimeMillis();
-        runnable.run();
-        time = System.currentTimeMillis() - time;
-        rec(metric, time, tags);
+        rec(metric, tags, runnable, null);
+    }
+
+    protected <T> T rec(String metric, Tags tags, Runnable runnable, Callable<T> callable) {
+        long allocated = 0;
+        long cpuUsed = 0;
+        long cpuUserUsed = 0;
+        CpuAndAllocationStats cpuAndAllocationStats = null;
+        if (recordAllocation || recordCpuTime) {
+            cpuAndAllocationStats = CpuAndAllocationStats.get();
+            if (recordAllocation) {
+                allocated = cpuAndAllocationStats.getTotalAllocation();
+            }
+            if (recordCpuTime) {
+                cpuUsed = cpuAndAllocationStats.getTotalCpuTime();
+                cpuUserUsed = cpuAndAllocationStats.getTotalCpuUserTime();
+            }
+        }
+
+        long time = System.nanoTime();
+        T result = null;
+        if (runnable != null)
+            runnable.run();
+
+        if (callable != null)
+            result = Unchecked.call(callable);
+
+        time = System.nanoTime() - time;
+        rec(metric, time / 1_000_000, tags);
+
+        if (recordAllocation || recordCpuTime) {
+            try {
+                if (recordAllocation) {
+                    allocated = cpuAndAllocationStats.getTotalAllocation() - allocated;
+                }
+                if (recordCpuTime) {
+                    cpuUsed = cpuAndAllocationStats.getTotalCpuTime() - cpuUsed;
+                    cpuUserUsed = cpuAndAllocationStats.getTotalCpuUserTime() - cpuUserUsed;
+                }
+
+                if (allocated > 0) {
+                    histogram(METHOD_ALLOCATION, allocated, tags);
+                }
+                if (cpuUsed > 0) {
+                    Tags cpuTags = Tags.of(tags).add("type", "cpu");
+                    histogram(METHOD_TIME, cpuUsed, cpuTags);
+                }
+                if (cpuUserUsed > 0) {
+                    Tags cpuTags = Tags.of(tags).add("type", "cpu.user");
+                    histogram(METHOD_TIME, cpuUserUsed, cpuTags);
+                }
+                Tags total = Tags.of(tags).add("type", "total");
+                histogram(METHOD_TIME, time, total);
+            } catch (Exception e) {
+                onError(e);
+            }
+        }
+        return result;
     }
 
     public <T> T rec(Callable<T> callable) {
@@ -60,11 +122,7 @@ public class Recorder {
     }
 
     public <T> T rec(String metric, Callable<T> callable, Tags tags) {
-        long time = System.currentTimeMillis();
-        T result = Unchecked.call(callable);
-        time = System.currentTimeMillis() - time;
-        rec(metric, time, tags);
-        return result;
+        return rec(metric, tags, null, callable);
     }
 
     public void rec(String metric, long duration) {
@@ -72,11 +130,12 @@ public class Recorder {
     }
 
     public void rec(String metric, long duration, Tags tags) {
-        try {
-            client.histogram(metric, duration * 0.001, renderTags(tags));
-        } catch (Exception e) {
-            onError(e);
-        }
+        if (duration > 0)
+            try {
+                client.histogram(metric, duration * 0.001, renderTags(tags));
+            } catch (Exception e) {
+                onError(e);
+            }
     }
 
     protected void onError(Exception e) {
@@ -130,6 +189,12 @@ public class Recorder {
     public static class Tags {
         List<String> tags = new ArrayList<>();
         String[] build;
+
+        public static Tags of(Tags tags) {
+            Tags t = new Tags();
+            t.tags.addAll(tags.tags);
+            return t;
+        }
 
         public static Tags of(String key, Object value) {
             return new Tags().add(key, value);
