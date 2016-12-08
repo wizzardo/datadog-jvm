@@ -1,6 +1,6 @@
 package com.wizzardo.metrics;
 
-import com.wizzardo.tools.misc.Consumer;
+import com.wizzardo.tools.interfaces.Consumer;
 import com.wizzardo.tools.misc.Unchecked;
 
 import java.util.ArrayList;
@@ -76,17 +76,17 @@ public class Recorder {
         if (callable != null)
             result = Unchecked.call(callable);
 
-        time = System.nanoTime() - time;
+        time = Math.max(System.nanoTime() - time, 0);
         rec(metric, time / 1_000_000, tags);
 
         if (recordAllocation || recordCpuTime) {
             try {
                 if (recordAllocation) {
-                    allocated = cpuAndAllocationStats.getTotalAllocation() - allocated;
+                    allocated = Math.max(cpuAndAllocationStats.getTotalAllocation() - allocated, 0);
                 }
                 if (recordCpuTime) {
-                    cpuUsed = cpuAndAllocationStats.getTotalCpuTime() - cpuUsed;
-                    cpuUserUsed = cpuAndAllocationStats.getTotalCpuUserTime() - cpuUserUsed;
+                    cpuUsed = Math.max(cpuAndAllocationStats.getTotalCpuTime() - cpuUsed, 0);
+                    cpuUserUsed = Math.max(cpuAndAllocationStats.getTotalCpuUserTime() - cpuUserUsed, 0);
                 }
 
                 if (allocated > 0) {
@@ -130,12 +130,11 @@ public class Recorder {
     }
 
     public void rec(String metric, long duration, Tags tags) {
-        if (duration > 0)
-            try {
-                client.histogram(metric, duration * 0.001, renderTags(tags));
-            } catch (Exception e) {
-                onError(e);
-            }
+        try {
+            client.histogram(metric, duration * 0.001, renderTags(tags));
+        } catch (Exception e) {
+            onError(e);
+        }
     }
 
     protected void onError(Exception e) {
