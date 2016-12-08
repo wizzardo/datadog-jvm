@@ -92,16 +92,23 @@ public class Recorder {
                 if (allocated > 0) {
                     histogram(METHOD_ALLOCATION, allocated, tags);
                 }
+
+                int i = tags.size();
+                tags.add("type", "cpu");
+
                 if (cpuUsed > 0) {
-                    Tags cpuTags = Tags.of(tags).add("type", "cpu");
-                    histogram(METHOD_TIME, cpuUsed, cpuTags);
+                    histogram(METHOD_TIME, cpuUsed, tags);
                 }
                 if (cpuUserUsed > 0) {
-                    Tags cpuTags = Tags.of(tags).add("type", "cpu.user");
-                    histogram(METHOD_TIME, cpuUserUsed, cpuTags);
+                    tags.set(i, "type:cpu.user");
+                    histogram(METHOD_TIME, cpuUserUsed, tags);
                 }
-                Tags total = Tags.of(tags).add("type", "total");
-                histogram(METHOD_TIME, time, total);
+
+                tags.set(i, "type:total");
+                histogram(METHOD_TIME, time, tags);
+
+                tags.set(i, "type:wait");
+                histogram(METHOD_TIME, time - cpuUsed, tags);
             } catch (Exception e) {
                 onError(e);
             }
@@ -211,6 +218,20 @@ public class Recorder {
                 }
             }
             return tags;
+        }
+
+        public int size() {
+            return tags.size();
+        }
+
+        public String get(int i) {
+            return tags.get(i);
+        }
+
+        public void set(int i, String tagPair) {
+            tags.set(i, tagPair);
+            if (build != null && build.length == tags.size())
+                build[i] = tagPair;
         }
 
         public Tags add(String key, Object value) {
