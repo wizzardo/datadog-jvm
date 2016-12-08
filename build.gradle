@@ -19,6 +19,6 @@ ext {
 apply from: 'gradle/sonatype.gradle'
 
 dependencies {
-    compile 'com.wizzardo.tools:tools:0.16-SNAPSHOT'
+    compile 'com.wizzardo.tools:tools:0.17-SNAPSHOT'
     compile 'com.indeed:java-dogstatsd-client:2.0.16'
 }

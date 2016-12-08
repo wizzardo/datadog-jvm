@@ -1,6 +1,6 @@
 package com.wizzardo.metrics;
 
-import com.wizzardo.tools.collections.flow.Filter;
+import com.wizzardo.tools.interfaces.Filter;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
