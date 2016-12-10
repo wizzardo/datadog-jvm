@@ -49,6 +49,13 @@ public class JvmMonitoring {
     protected String metricJvmBuffersMemoryUsed = "jvm.buffers.memory_used";
     protected String metricJvmBuffersCapacity = "jvm.buffers.capacity";
 
+    protected String metricCacheSize = "cache.size";
+    protected String metricCacheHeap = "cache.heap";
+    protected String metricCacheLatency = "cache.latency";
+    protected String metricCacheLatencyTotal = "cache.latency.total";
+    protected String metricCacheCount = "cache.count";
+    protected String metricCacheCountTotal = "cache.count.total";
+
     public JvmMonitoring(Recorder recorder) {
         this.recorder = recorder;
     }
@@ -486,5 +493,53 @@ public class JvmMonitoring {
 
     public void setMetricJvmBuffersCapacity(String metricJvmBuffersCapacity) {
         this.metricJvmBuffersCapacity = metricJvmBuffersCapacity;
+    }
+
+    public String getMetricCacheSize() {
+        return metricCacheSize;
+    }
+
+    public void setMetricCacheSize(String metricCacheSize) {
+        this.metricCacheSize = metricCacheSize;
+    }
+
+    public String getMetricCacheHeap() {
+        return metricCacheHeap;
+    }
+
+    public void setMetricCacheHeap(String metricCacheHeap) {
+        this.metricCacheHeap = metricCacheHeap;
+    }
+
+    public String getMetricCacheLatency() {
+        return metricCacheLatency;
+    }
+
+    public void setMetricCacheLatency(String metricCacheLatency) {
+        this.metricCacheLatency = metricCacheLatency;
+    }
+
+    public String getMetricCacheLatencyTotal() {
+        return metricCacheLatencyTotal;
+    }
+
+    public void setMetricCacheLatencyTotal(String metricCacheLatencyTotal) {
+        this.metricCacheLatencyTotal = metricCacheLatencyTotal;
+    }
+
+    public String getMetricCacheCount() {
+        return metricCacheCount;
+    }
+
+    public void setMetricCacheCount(String metricCacheCount) {
+        this.metricCacheCount = metricCacheCount;
+    }
+
+    public String getMetricCacheCountTotal() {
+        return metricCacheCountTotal;
+    }
+
+    public void setMetricCacheCountTotal(String metricCacheCountTotal) {
+        this.metricCacheCountTotal = metricCacheCountTotal;
     }
 }
