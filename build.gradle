@@ -11,7 +11,7 @@ sourceCompatibility = 1.7
 targetCompatibility = 1.7
 
 group = 'com.wizzardo'
-version = '0.3-SNAPSHOT'
+version = '0.3'
 
 ext {
     descriptionString = 'Collector for jvm metrics'
@@ -19,6 +19,6 @@ ext {
 apply from: 'gradle/sonatype.gradle'
 
 dependencies {
-    compile 'com.wizzardo.tools:tools:0.17-SNAPSHOT'
+    compile 'com.wizzardo.tools:tools:0.17'
     compile 'com.indeed:java-dogstatsd-client:2.0.16'
 }
