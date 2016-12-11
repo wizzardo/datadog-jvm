@@ -14,6 +14,7 @@ import java.util.concurrent.Callable;
 public class Recorder {
     public static final String ACTION_DURATION = "actionDuration";
     public static final String ACTION_TIME = "action.time";
+    public static final String ACTION_ALLOCATION = "action.allocation";
     public static final String METHOD_DURATION = "methodDuration";
     public static final String METHOD_TIME = "method.time";
     public static final String METHOD_ALLOCATION = "method.allocation";
