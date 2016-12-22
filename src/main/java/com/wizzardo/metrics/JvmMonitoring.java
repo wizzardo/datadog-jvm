@@ -19,7 +19,7 @@ public class JvmMonitoring {
     protected Recorder recorder;
     protected Cache<String, Recordable> cache;
     protected Profiler profiler;
-    protected volatile boolean profilerEnabled = true;
+    protected volatile boolean profilerEnabled = false;
     protected Queue<Pair<Filter<String>, String>> customThreadGroupNames = new ConcurrentLinkedQueue<>();
     protected int interval = 10;
     protected String metricJvmMemoryFree = "jvm.memory.free";
@@ -186,16 +186,15 @@ public class JvmMonitoring {
         com.sun.management.ThreadMXBean threadMXBean = (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
         if (threadMXBean.isThreadAllocatedMemorySupported() && threadMXBean.isThreadAllocatedMemoryEnabled()
                 && threadMXBean.isThreadCpuTimeSupported() && threadMXBean.isThreadCpuTimeEnabled()) {
-            if (profilerEnabled) {
-                profiler = createProfiler();
-                profiler.addFilter(new Filter<StackTraceElement>() {
-                    @Override
-                    public boolean allow(StackTraceElement stackTraceElement) {
-                        return stackTraceElement.getClassName().startsWith("com.wizzardo.");
-                    }
-                });
-                profiler.start();
-            }
+
+            profiler = createProfiler();
+            profiler.addFilter(new Filter<StackTraceElement>() {
+                @Override
+                public boolean allow(StackTraceElement stackTraceElement) {
+                    return stackTraceElement.getClassName().startsWith("com.wizzardo.");
+                }
+            });
+            profiler.start();
 
             cache.put("threading", new ThreadsStats(threadMXBean, profiler, this));
         }
