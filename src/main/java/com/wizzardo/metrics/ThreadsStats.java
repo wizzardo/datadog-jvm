@@ -42,6 +42,7 @@ public class ThreadsStats implements JvmMonitoring.Recordable {
     @Override
     public void record(Recorder recorder) {
         tickCounter++;
+        boolean profilerEnabled = jvmMonitoring.profilerEnabled;
 
         long[] ids = threadMXBean.getAllThreadIds();
         long[] allocatedBytes = threadMXBean.getThreadAllocatedBytes(ids);
@@ -82,7 +83,7 @@ public class ThreadsStats implements JvmMonitoring.Recordable {
                 recorder.histogram(jvmMonitoring.metricJvmThreadCpuUserNanos, (userTime - tInfo.userTime), tInfo.tags);
             }
 
-            if (jvmMonitoring.profilerEnabled && !tInfo.profilingDisabled) {
+            if (profilerEnabled && !tInfo.profilingDisabled) {
                 if (tInfo.lastRecord != 0 && (cpuTime - tInfo.cpuTime) * 100d / (now - tInfo.lastRecord) >= 5) {
                     if (!tInfo.profiling) {
                         profiler.startProfiling(tInfo.id);
