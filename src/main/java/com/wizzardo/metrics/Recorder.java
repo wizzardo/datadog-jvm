@@ -55,8 +55,7 @@ public class Recorder {
 
     protected <T> T rec(String metric, Tags tags, Runnable runnable, Callable<T> callable) {
         long allocated = 0;
-        long cpuUsed = 0;
-        long cpuUserUsed = 0;
+        long cpuTime = 0;
         CpuAndAllocationStats cpuAndAllocationStats = null;
         if (recordAllocation || recordCpuTime) {
             cpuAndAllocationStats = CpuAndAllocationStats.get();
@@ -64,8 +63,7 @@ public class Recorder {
                 allocated = cpuAndAllocationStats.getTotalAllocation();
             }
             if (recordCpuTime) {
-                cpuUsed = cpuAndAllocationStats.getTotalCpuTime();
-                cpuUserUsed = cpuAndAllocationStats.getTotalCpuUserTime();
+                cpuTime = cpuAndAllocationStats.getTotalCpuTime();
             }
         }
 
@@ -86,8 +84,7 @@ public class Recorder {
                     allocated = Math.max(cpuAndAllocationStats.getTotalAllocation() - allocated, 0);
                 }
                 if (recordCpuTime) {
-                    cpuUsed = Math.max(cpuAndAllocationStats.getTotalCpuTime() - cpuUsed, 0);
-                    cpuUserUsed = Math.max(cpuAndAllocationStats.getTotalCpuUserTime() - cpuUserUsed, 0);
+                    cpuTime = Math.max(cpuAndAllocationStats.getTotalCpuTime() - cpuTime, 0);
                 }
 
                 if (allocated > 0) {
@@ -97,19 +94,15 @@ public class Recorder {
                 int i = tags.size();
                 tags.add("type", "cpu");
 
-                if (cpuUsed > 0) {
-                    histogram(METHOD_TIME, cpuUsed, tags);
-                }
-                if (cpuUserUsed > 0) {
-                    tags.set(i, "type:cpu.user");
-                    histogram(METHOD_TIME, cpuUserUsed, tags);
+                if (cpuTime > 0) {
+                    histogram(METHOD_TIME, cpuTime, tags);
                 }
 
                 tags.set(i, "type:total");
                 histogram(METHOD_TIME, time, tags);
 
                 tags.set(i, "type:wait");
-                histogram(METHOD_TIME, time - cpuUsed, tags);
+                histogram(METHOD_TIME, time - cpuTime, tags);
             } catch (Exception e) {
                 onError(e);
             }
