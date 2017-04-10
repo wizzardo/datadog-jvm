@@ -21,6 +21,7 @@ public class Profiler extends Thread {
     Set<Filter<StackTraceElement>> filters = Collections.newSetFromMap(new ConcurrentHashMap<Filter<StackTraceElement>, Boolean>());
     volatile int pause = 5;
     volatile int cycles = 1;
+    volatile long durationNanos = 10_000_000_000l;
     JvmMonitoring jvmMonitoring;
     BiConsumer<SimpleThreadInfo, StackTraceEntry> resultHandler;
 
@@ -29,18 +30,12 @@ public class Profiler extends Thread {
         this.jvmMonitoring = jvmMonitoring;
         threadMXBean = ManagementFactory.getThreadMXBean();
         setDaemon(true);
-    }
-
-    public static class Counter {
-        int value = 0;
-
-        public void increment() {
-            value++;
-        }
-
-        public int get() {
-            return value;
-        }
+        addFilter(new Filter<StackTraceElement>() {
+            @Override
+            public boolean allow(StackTraceElement stackTraceElement) {
+                return true;
+            }
+        });
     }
 
     public static class SimpleThreadInfo {
@@ -57,6 +52,14 @@ public class Profiler extends Thread {
 
     public void setResultHandler(BiConsumer<SimpleThreadInfo, StackTraceEntry> resultHandler) {
         this.resultHandler = resultHandler;
+    }
+
+    public void setDuration(long durationNanos) {
+        this.durationNanos = durationNanos;
+    }
+
+    public long getDuration() {
+        return durationNanos;
     }
 
     public void setPause(int pause) {
@@ -184,10 +187,6 @@ public class Profiler extends Thread {
         out.println(s);
     }
 
-    protected Iterable<Map.Entry<StackTraceEntry, Counter>> filter(Set<Map.Entry<StackTraceEntry, Counter>> samples) {
-        return samples;
-    }
-
     private long[] getThreadsToProfile() {
         if (!profilingThreads.isEmpty()) {
             ArrayList<Long> longs = new ArrayList<>(profilingThreads.size());
@@ -212,7 +211,7 @@ public class Profiler extends Thread {
     }
 
     protected long getNextPrintTime() {
-        return System.nanoTime() + 10_000_000_000L;
+        return System.nanoTime() + durationNanos;
     }
 
     public void startProfiling(long id) {
