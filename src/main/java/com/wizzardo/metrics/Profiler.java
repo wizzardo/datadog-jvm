@@ -1,7 +1,10 @@
 package com.wizzardo.metrics;
 
+import com.wizzardo.tools.interfaces.BiConsumer;
 import com.wizzardo.tools.interfaces.Filter;
+import javafx.util.Pair;
 
+import java.io.PrintStream;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
@@ -13,18 +16,17 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class Profiler extends Thread {
 
-    Recorder recorder;
     ThreadMXBean threadMXBean;
     final Set<Long> profilingThreads = Collections.newSetFromMap(new ConcurrentHashMap<Long, Boolean>());
     Set<Filter<StackTraceElement>> filters = Collections.newSetFromMap(new ConcurrentHashMap<Filter<StackTraceElement>, Boolean>());
     volatile int pause = 5;
     volatile int cycles = 1;
     JvmMonitoring jvmMonitoring;
+    BiConsumer<SimpleThreadInfo, StackTraceEntry> resultHandler;
 
-    public Profiler(Recorder recorder, JvmMonitoring jvmMonitoring) {
+    public Profiler(JvmMonitoring jvmMonitoring) {
         super("Profiler");
         this.jvmMonitoring = jvmMonitoring;
-        this.recorder = recorder;
         threadMXBean = ManagementFactory.getThreadMXBean();
         setDaemon(true);
     }
@@ -41,18 +43,42 @@ public class Profiler extends Thread {
         }
     }
 
+    public static class SimpleThreadInfo {
+        public final long id;
+        public final String name;
+        public final String group;
+
+        public SimpleThreadInfo(ThreadInfo threadInfo, JvmMonitoring jvmMonitoring) {
+            id = threadInfo.getThreadId();
+            name = threadInfo.getThreadName();
+            group = jvmMonitoring.resolveThreadGroupName(threadInfo.getThreadName(), JvmMonitoring.threadGroup(threadInfo.getThreadId()).getName());
+        }
+    }
+
+    public void setResultHandler(BiConsumer<SimpleThreadInfo, StackTraceEntry> resultHandler) {
+        this.resultHandler = resultHandler;
+    }
+
     public void setPause(int pause) {
         this.pause = pause;
+    }
+
+    public int getPause() {
+        return pause;
     }
 
     public void setCycles(int cycles) {
         this.cycles = cycles;
     }
 
+    public int getCycles() {
+        return cycles;
+    }
+
     @Override
     public void run() {
         long[] ids = new long[0];
-        Map<StackTraceEntry, Counter> samples = new HashMap<>();
+        Map<Long, Pair<SimpleThreadInfo, StackTraceEntry>> samples = new HashMap<>();
         long time;
         long nextPrint = getNextPrintTime();
         int pause = this.pause;
@@ -80,27 +106,30 @@ public class Profiler extends Thread {
                         continue;
 
                     StackTraceElement[] stackTrace = threadInfo.getStackTrace();
+                    Pair<SimpleThreadInfo, StackTraceEntry> pair = samples.get(threadInfo.getThreadId());
+                    if (pair == null)
+                        samples.put(threadInfo.getThreadId(), pair = new Pair<>(new SimpleThreadInfo(threadInfo, jvmMonitoring), new StackTraceEntry()));
+
+                    StackTraceEntry entry = pair.getValue();
+
                     int length = stackTrace.length;
-                    for (int i = 0; i < length; i++) {
+                    for (int i = length - 1; i >= 0; i--) {
                         StackTraceElement element = stackTrace[i];
                         if (!filter(element))
                             continue;
 
-                        String groupName = jvmMonitoring.resolveThreadGroupName(threadInfo.getThreadName(), JvmMonitoring.threadGroup(threadInfo.getThreadId()).getName());
-                        StackTraceEntry stackTraceEntry = new StackTraceEntry(threadInfo.getThreadName(), groupName, element.getClassName(), element.getMethodName(), length - i);
-                        Counter counter = samples.get(stackTraceEntry);
-                        if (counter == null) {
-                            samples.put(stackTraceEntry, counter = new Counter());
-                        }
-                        counter.increment();
+                        entry = entry.getChild(element.getClassName(), element.getMethodName());
                     }
                 }
             }
 
             time = System.nanoTime();
             if (time >= nextPrint) {
-                for (Map.Entry<StackTraceEntry, Counter> mapEntry : filter(samples.entrySet())) {
-                    recorder.gauge(jvmMonitoring.metricJvmProfilerStackTraceEntry, mapEntry.getValue().get(), jvmMonitoring.getTags(mapEntry.getKey()));
+                for (Pair<SimpleThreadInfo, StackTraceEntry> pair : samples.values()) {
+                    SimpleThreadInfo threadInfo = pair.getKey();
+                    StackTraceEntry value = pair.getValue();
+
+                    handleResult(threadInfo, value);
                 }
                 samples.clear();
                 ids = getThreadsToProfile();
@@ -109,6 +138,50 @@ public class Profiler extends Thread {
                 nextPrint = getNextPrintTime();
             }
         }
+    }
+
+    protected void handleResult(SimpleThreadInfo threadInfo, StackTraceEntry profile) {
+        if (resultHandler != null)
+            resultHandler.consume(threadInfo, profile);
+    }
+
+    /**
+     * Prints {@link StackTraceEntry} to {@link PrintStream} in <a href="https://github.com/brendangregg/FlameGraph">FlameGraph</a> format
+     **/
+    public void printProfile(StackTraceEntry root, PrintStream out) {
+        record(root, new StringBuilder(), out);
+    }
+
+    private void record(StackTraceEntry entry, StringBuilder sb, PrintStream out) {
+        int lengthBefore = sb.length();
+        if (entry.children != null) {
+            for (Map.Entry<String, Map<String, StackTraceEntry>> stringMapEntry : entry.children.entrySet()) {
+                String declaringClass = stringMapEntry.getKey();
+                if (sb.length() > 0)
+                    sb.append(';');
+
+                sb.append(declaringClass).append('.');
+                int lengthBeforeMethod = sb.length();
+                Map<String, StackTraceEntry> methods = stringMapEntry.getValue();
+                for (Map.Entry<String, StackTraceEntry> entryEntry : methods.entrySet()) {
+                    String method = entryEntry.getKey();
+                    StackTraceEntry value = entryEntry.getValue();
+                    sb.append(method);
+                    int lengthBeforeValue = sb.length();
+                    record(sb.append(' ').append(value.value).toString(), out);
+
+                    sb.setLength(lengthBeforeValue);
+                    record(value, sb, out);
+                    sb.setLength(lengthBeforeMethod);
+                }
+
+                sb.setLength(lengthBefore);
+            }
+        }
+    }
+
+    private void record(String s, PrintStream out) {
+        out.println(s);
     }
 
     protected Iterable<Map.Entry<StackTraceEntry, Counter>> filter(Set<Map.Entry<StackTraceEntry, Counter>> samples) {
@@ -138,7 +211,7 @@ public class Profiler extends Thread {
         return false;
     }
 
-    private long getNextPrintTime() {
+    protected long getNextPrintTime() {
         return System.nanoTime() + 10_000_000_000L;
     }
 
@@ -162,24 +235,40 @@ public class Profiler extends Thread {
         filters.clear();
     }
 
-    public static class StackTraceEntry implements Comparable<StackTraceEntry> {
-        public final String thread;
-        public final String group;
+    public static class StackTraceEntry {
         public final String declaringClass;
         public final String methodName;
-        public final int depth;
+        public int value;
+        public Map<String, Map<String, StackTraceEntry>> children;
 
-        StackTraceEntry(String thread, String group, String declaringClass, String methodName, int depth) {
-            this.thread = thread;
-            this.group = group;
+        StackTraceEntry(String declaringClass, String methodName) {
             this.declaringClass = declaringClass;
             this.methodName = methodName;
-            this.depth = depth;
+        }
+
+        StackTraceEntry() {
+            this(null, null);
+        }
+
+        public StackTraceEntry getChild(String declaringClass, String methodName) {
+            if (children == null)
+                children = new HashMap<>(16, 1f);
+
+            Map<String, StackTraceEntry> map = children.get(declaringClass);
+            if (map == null)
+                children.put(declaringClass, map = new HashMap<>());
+
+            StackTraceEntry entry = map.get(methodName);
+            if (entry == null)
+                map.put(methodName, entry = new StackTraceEntry(declaringClass, methodName));
+
+            entry.value++;
+            return entry;
         }
 
         @Override
         public String toString() {
-            return depth + ": " + declaringClass + "." + methodName;
+            return declaringClass + "." + methodName;
         }
 
         @Override
@@ -189,25 +278,15 @@ public class Profiler extends Thread {
 
             StackTraceEntry that = (StackTraceEntry) o;
 
-            if (depth != that.depth) return false;
-            if (!thread.equals(that.thread)) return false;
             if (!declaringClass.equals(that.declaringClass)) return false;
             return methodName.equals(that.methodName);
-
         }
 
         @Override
         public int hashCode() {
-            int result = thread.hashCode();
-            result = 31 * result + declaringClass.hashCode();
+            int result = declaringClass.hashCode();
             result = 31 * result + methodName.hashCode();
-            result = 31 * result + depth;
             return result;
-        }
-
-        @Override
-        public int compareTo(StackTraceEntry o) {
-            return Integer.compare(depth, o.depth);
         }
     }
 }

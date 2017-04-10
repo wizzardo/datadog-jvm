@@ -7,7 +7,8 @@ import com.wizzardo.tools.collections.Pair;
 import com.wizzardo.tools.interfaces.Filter;
 
 import java.lang.management.*;
-import java.util.*;
+import java.util.List;
+import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -216,7 +217,7 @@ public class JvmMonitoring {
     }
 
     protected Profiler createProfiler() {
-        return new Profiler(recorder, this);
+        return new Profiler(this);
     }
 
     public String resolveThreadGroupName(String threadName, String actualThreadGroupName) {
@@ -260,14 +261,6 @@ public class JvmMonitoring {
 
     protected Recorder.Tags getTags(BufferPoolMXBean memoryPool) {
         return Recorder.Tags.of("buffer", memoryPool.getName());
-    }
-
-    protected Recorder.Tags getTags(Profiler.StackTraceEntry ste) {
-        return Recorder.Tags.of(
-                "thread", ste.thread,
-                "group", ste.group,
-                "entry", ste.depth + "-" + ste.declaringClass + "." + ste.methodName
-        );
     }
 
     protected Recorder.Tags getTags(ThreadsStats.TInfo info) {
