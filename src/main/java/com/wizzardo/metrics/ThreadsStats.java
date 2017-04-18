@@ -9,7 +9,6 @@ import java.util.Map;
  */
 public class ThreadsStats implements JvmMonitoring.Recordable {
     com.sun.management.ThreadMXBean threadMXBean;
-    Profiler profiler;
     Map<Long, TInfo> threads = new HashMap<>(32, 1);
     int tickCounter = 0;
     JvmMonitoring jvmMonitoring;
@@ -33,9 +32,8 @@ public class ThreadsStats implements JvmMonitoring.Recordable {
         Recorder.Tags tags;
     }
 
-    public ThreadsStats(com.sun.management.ThreadMXBean threadMXBean, Profiler profiler, JvmMonitoring jvmMonitoring) {
+    public ThreadsStats(com.sun.management.ThreadMXBean threadMXBean, JvmMonitoring jvmMonitoring) {
         this.threadMXBean = threadMXBean;
-        this.profiler = profiler;
         this.jvmMonitoring = jvmMonitoring;
     }
 
@@ -86,11 +84,11 @@ public class ThreadsStats implements JvmMonitoring.Recordable {
             if (profilerEnabled && !tInfo.profilingDisabled) {
                 if (tInfo.lastRecord != 0 && (cpuTime - tInfo.cpuTime) * 100d / (now - tInfo.lastRecord) >= 5) {
                     if (!tInfo.profiling) {
-                        profiler.startProfiling(tInfo.id);
+                        jvmMonitoring.getProfiler().startProfiling(tInfo.id);
                         tInfo.profiling = true;
                     }
                 } else if (tInfo.profiling) {
-                    profiler.stopProfiling(tInfo.id);
+                    jvmMonitoring.getProfiler().stopProfiling(tInfo.id);
                     tInfo.profiling = false;
                 }
             }

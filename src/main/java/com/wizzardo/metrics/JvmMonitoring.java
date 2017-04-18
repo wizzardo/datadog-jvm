@@ -188,16 +188,10 @@ public class JvmMonitoring {
         if (threadMXBean.isThreadAllocatedMemorySupported() && threadMXBean.isThreadAllocatedMemoryEnabled()
                 && threadMXBean.isThreadCpuTimeSupported() && threadMXBean.isThreadCpuTimeEnabled()) {
 
-            profiler = createProfiler();
-            profiler.addFilter(new Filter<StackTraceElement>() {
-                @Override
-                public boolean allow(StackTraceElement stackTraceElement) {
-                    return stackTraceElement.getClassName().startsWith("com.wizzardo.");
-                }
-            });
-            profiler.start();
+            if (profilerEnabled)
+                profiler = createProfiler();
 
-            cache.put("threading", new ThreadsStats(threadMXBean, profiler, this));
+            cache.put("threading", new ThreadsStats(threadMXBean, this));
         }
 
         final AtomicInteger counter = new AtomicInteger(0);
@@ -217,7 +211,15 @@ public class JvmMonitoring {
     }
 
     protected Profiler createProfiler() {
-        return new Profiler(this);
+        Profiler profiler = new Profiler(this);
+        profiler.addFilter(new Filter<StackTraceElement>() {
+            @Override
+            public boolean allow(StackTraceElement stackTraceElement) {
+                return stackTraceElement.getClassName().startsWith("com.wizzardo.");
+            }
+        });
+        profiler.start();
+        return profiler;
     }
 
     public String resolveThreadGroupName(String threadName, String actualThreadGroupName) {
@@ -229,6 +231,9 @@ public class JvmMonitoring {
     }
 
     public Profiler getProfiler() {
+        if (profilerEnabled && profiler == null)
+            profiler = createProfiler();
+
         return profiler;
     }
 
