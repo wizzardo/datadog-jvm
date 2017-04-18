@@ -29,6 +29,11 @@ public class DatadogClient implements Client {
     }
 
     @Override
+    public void gauge(String metric, double value, String[] tags) {
+        client.gauge(metric, value, tags);
+    }
+
+    @Override
     public void increment(String metric, String[] tags) {
         client.increment(metric, tags);
     }

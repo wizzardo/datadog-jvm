@@ -10,6 +10,8 @@ public interface Client {
 
     void gauge(String metric, long value, String[] tags);
 
+    void gauge(String metric, double value, String[] tags);
+
     void increment(String metric, String[] tags);
 
     void decrement(String metric, String[] tags);
