@@ -61,7 +61,12 @@ public class CpuStatReader {
 
             @Override
             public void record(Recorder recorder) {
-                read(next);
+                try {
+                    read(next);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    return;
+                }
                 long time = System.nanoTime();
                 long timeMs = (time - this.time) / 1000 / 1000;
 
@@ -227,26 +232,6 @@ public class CpuStatReader {
         } catch (IOException e) {
             e.printStackTrace();
             return -1;
-        }
-    }
-
-    public static void main(String[] args) throws InterruptedException {
-        CpuStats[] stats = new CpuStats[5];
-//        int read = new StatReader().read(stats);
-//        System.out.println(read);
-//        for (CpuStats stat : stats) {
-//            System.out.println(stat);
-//        }
-        for (int i = 0; i < 100; i++) {
-            long time = System.nanoTime();
-            for (int j = 0; j < 1000; j++) {
-                new CpuStatReader().read(stats);
-            }
-            time = System.nanoTime() - time;
-            System.out.println("time: " + (time / 1000f / 1000f) + "ms");
-            System.out.println(stats[0]);
-            System.out.println();
-            Thread.sleep(1000);
         }
     }
 }
