@@ -178,7 +178,19 @@ public class Recorder {
         gauge(metric, value, null);
     }
 
+    public void gauge(String metric, double value) {
+        gauge(metric, value, null);
+    }
+
     public void gauge(String metric, long value, Tags tags) {
+        try {
+            client.gauge(metric, value, renderTags(tags));
+        } catch (Exception e) {
+            onError(e);
+        }
+    }
+
+    public void gauge(String metric, double value, Tags tags) {
         try {
             client.gauge(metric, value, renderTags(tags));
         } catch (Exception e) {
