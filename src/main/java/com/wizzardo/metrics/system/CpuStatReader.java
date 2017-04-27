@@ -3,8 +3,10 @@ package com.wizzardo.metrics.system;
 import com.wizzardo.metrics.JvmMonitoring;
 import com.wizzardo.metrics.Recorder;
 
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+
+import static com.wizzardo.metrics.system.Utils.*;
 
 /**
  * Created by wizzardo on 20/04/17.
@@ -14,6 +16,13 @@ public class CpuStatReader {
     protected byte[] buffer = new byte[10240];
     protected int[] intHolder = new int[1];
     protected long SC_CLK_TCK_MS = 10;
+
+    public CpuStatReader() {
+        int userHz = getUserHz();
+        if (userHz > 0) {
+            SC_CLK_TCK_MS = 1000 / userHz;
+        }
+    }
 
     public static class CpuStats {
         public String name;
@@ -38,6 +47,20 @@ public class CpuStatReader {
                     ", softirq=" + softirq +
                     '}';
         }
+    }
+
+    public int getUserHz() {
+        try {
+            File file = new File("/tmp/CLK_TCK.sh");
+            try (FileOutputStream out = new FileOutputStream(file)) {
+                out.write("echo $(getconf CLK_TCK)".getBytes(StandardCharsets.UTF_8));
+            }
+            return Integer.parseInt(Utils.exec("bash " + file.getAbsolutePath()));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return -1;
     }
 
     public JvmMonitoring.Recordable createRecordable() {
@@ -128,7 +151,7 @@ public class CpuStatReader {
         byte[] buffer = this.buffer;
         int[] holder = this.intHolder;
 
-        int limit = read("/proc/stat", buffer);
+        int limit = Utils.read("/proc/stat", buffer);
         if (limit == -1)
             return 0;
 
@@ -187,51 +210,5 @@ public class CpuStatReader {
         } while (position < limit);
 
         return line;
-    }
-
-    protected void checkPosition(byte[] buffer, int position, int limit) {
-        if (position == -1 || position > limit)
-            throw new IllegalStateException("Cannot parse: " + new String(buffer, 0, limit));
-    }
-
-    public int indexOf(byte b, byte[] bytes, int offset, int limit) {
-        for (int i = offset; i < limit; i++) {
-            if (bytes[i] == b)
-                return i;
-        }
-        return -1;
-    }
-
-    public int indexOfNot(byte b, byte[] bytes, int offset, int limit) {
-        for (int i = offset; i < limit; i++) {
-            if (bytes[i] != b)
-                return i;
-        }
-        return -1;
-    }
-
-    public int readInt(int[] holder, byte[] bytes, int offset, int limit) {
-        int value = 0;
-        for (int i = offset; i < limit; i++) {
-            byte b = bytes[i];
-            if (b >= '0' && b <= '9') {
-                value = value * 10 + (b - '0');
-            } else {
-                holder[0] = value;
-                return i + 1;
-            }
-        }
-
-        holder[0] = value;
-        return limit + 1;
-    }
-
-    public static int read(String path, byte[] bytes) {
-        try (FileInputStream in = new FileInputStream(path)) {
-            return in.read(bytes);
-        } catch (IOException e) {
-            e.printStackTrace();
-            return -1;
-        }
     }
 }
