@@ -1,5 +1,6 @@
 package com.wizzardo.metrics;
 
+import java.lang.management.ThreadInfo;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -64,8 +65,12 @@ public class ThreadsStats implements JvmMonitoring.Recordable {
             if (tInfo == null) {
                 tInfo = new TInfo();
                 tInfo.id = id;
+                ThreadInfo threadInfo = threadMXBean.getThreadInfo(tInfo.id);
+                if (threadInfo == null)
+                    continue;
+
                 threads.put(id, tInfo);
-                tInfo.name = threadMXBean.getThreadInfo(tInfo.id).getThreadName();
+                tInfo.name = threadInfo.getThreadName();
                 tInfo.group = JvmMonitoring.threadGroup(id).getName();
                 if ("main".equalsIgnoreCase(tInfo.group) || "system".equalsIgnoreCase(tInfo.group))
                     tInfo.group = jvmMonitoring.resolveThreadGroupName(tInfo.name, tInfo.group);
