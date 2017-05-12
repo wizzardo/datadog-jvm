@@ -96,6 +96,20 @@ public class Utils {
         return limit + 1;
     }
 
+    public static long readLong(byte[] bytes, int offset, int limit) {
+        long value = 0;
+        for (int i = offset; i < limit; i++) {
+            byte b = bytes[i];
+            if (b >= '0' && b <= '9') {
+                value = value * 10 + (b - '0');
+            } else {
+                return value;
+            }
+        }
+
+        return value;
+    }
+
     public static int read(String path, byte[] bytes) {
         try (FileInputStream in = new FileInputStream(path)) {
             return in.read(bytes);
