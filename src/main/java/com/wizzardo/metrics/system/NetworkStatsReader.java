@@ -37,7 +37,6 @@ public class NetworkStatsReader {
     public Map<String, NetworkStats> read() {
         byte[] buffer = this.buffer;
         int limit = Utils.read("/proc/net/dev", buffer);
-        System.out.println(new String(buffer, 0, limit));
 
         int position = 0;
         position = indexOf((byte) '\n', buffer, position, limit) + 1;
@@ -76,7 +75,6 @@ public class NetworkStatsReader {
             checkPosition(buffer, position, nextLine);
             long transmitted = holder[0];
 
-            System.out.println(device + " " + received + " " + transmitted);
             NetworkStats networkStats = new NetworkStats();
             networkStats.device = device;
             networkStats.transmitted = transmitted;
