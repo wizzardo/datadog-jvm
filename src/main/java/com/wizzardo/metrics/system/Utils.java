@@ -27,7 +27,7 @@ public class Utils {
             }
             in.close();
             out.close();
-            return new String(out.toByteArray(), StandardCharsets.UTF_8);
+            return new String(out.toByteArray(), StandardCharsets.UTF_8).trim();
         } catch (IOException e) {
             e.printStackTrace();
         } catch (InterruptedException e) {
