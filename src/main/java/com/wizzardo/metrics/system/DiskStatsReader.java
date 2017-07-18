@@ -35,7 +35,7 @@ public class DiskStatsReader {
 
         public Recorder.Tags getTags() {
             if (tags == null)
-                tags = Recorder.Tags.of("device", name, "mount", mountPoint);
+                tags = Recorder.Tags.of("dev", name, "mount", mountPoint);
 
             return tags;
         }
@@ -82,7 +82,7 @@ public class DiskStatsReader {
                     recorder.gauge("system.disk.total", fs.size, fs.getTags());
                     recorder.gauge("system.disk.available", fs.available, fs.getTags());
                     recorder.gauge("system.disk.used", fs.size - fs.free, fs.getTags());
-                    recorder.gauge("system.disk.in_use", fs.free * 1d / fs.size, fs.getTags());
+                    recorder.gauge("system.disk.in_use", (fs.size - fs.free) * 1d / fs.size, fs.getTags());
                 }
             }
 

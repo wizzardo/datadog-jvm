@@ -24,13 +24,23 @@ public class NetworkStatsReader {
 
         public Recorder.Tags getTags() {
             if (tags == null)
-                tags = Recorder.Tags.of("device", device);
+                tags = Recorder.Tags.of("dev", device);
 
             return tags;
         }
 
         public void setTags(Recorder.Tags tags) {
             this.tags = tags;
+        }
+
+        @Override
+        public String toString() {
+            return "NetworkStats{" +
+                    "device='" + device + '\'' +
+                    ", transmitted=" + transmitted +
+                    ", received=" + received +
+                    ", tags=" + tags +
+                    '}';
         }
     }
 
