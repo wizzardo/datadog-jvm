@@ -12,7 +12,7 @@ import static com.wizzardo.metrics.system.Utils.*;
  * Created by wizzardo on 20/04/17.
  */
 public class CpuStatReader {
-
+    protected int numberOfCores = Runtime.getRuntime().availableProcessors();
     protected byte[] buffer = new byte[10240];
     protected int[] intHolder = new int[1];
     protected long SC_CLK_TCK_MS = 10;
@@ -55,7 +55,8 @@ public class CpuStatReader {
             try (FileOutputStream out = new FileOutputStream(file)) {
                 out.write("echo $(getconf CLK_TCK)".getBytes(StandardCharsets.UTF_8));
             }
-            return Integer.parseInt(Utils.exec("bash " + file.getAbsolutePath()));
+            String exec = Utils.exec("bash " + file.getAbsolutePath());
+            return Integer.parseInt(exec);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -92,6 +93,7 @@ public class CpuStatReader {
                 }
                 long time = System.nanoTime();
                 long timeMs = (time - this.time) / 1000 / 1000;
+                this.time = time;
 
                 diff(prev, next);
 
@@ -114,12 +116,12 @@ public class CpuStatReader {
     }
 
     protected void record(CpuStats cpuStats, Recorder recorder, long timeMs) {
-        recorder.gauge("system.cpu.user", cpuStats.user * 100d * SC_CLK_TCK_MS / timeMs);
-        recorder.gauge("system.cpu.nice", cpuStats.nice * 100d * SC_CLK_TCK_MS / timeMs);
-        recorder.gauge("system.cpu.system", cpuStats.system * 100d * SC_CLK_TCK_MS / timeMs);
-        recorder.gauge("system.cpu.idle", cpuStats.idle * 100d * SC_CLK_TCK_MS / timeMs);
-        recorder.gauge("system.cpu.iowait", cpuStats.iowait * 100d * SC_CLK_TCK_MS / timeMs);
-        recorder.gauge("system.cpu.interrupt", (cpuStats.irq + cpuStats.softirq) * 100d * SC_CLK_TCK_MS / timeMs);
+        recorder.gauge("system.cpu.user", cpuStats.user * 100d * SC_CLK_TCK_MS / timeMs / numberOfCores);
+        recorder.gauge("system.cpu.nice", cpuStats.nice * 100d * SC_CLK_TCK_MS / timeMs / numberOfCores);
+        recorder.gauge("system.cpu.system", cpuStats.system * 100d * SC_CLK_TCK_MS / timeMs / numberOfCores);
+        recorder.gauge("system.cpu.idle", cpuStats.idle * 100d * SC_CLK_TCK_MS / timeMs / numberOfCores);
+        recorder.gauge("system.cpu.iowait", cpuStats.iowait * 100d * SC_CLK_TCK_MS / timeMs / numberOfCores);
+        recorder.gauge("system.cpu.interrupt", (cpuStats.irq + cpuStats.softirq) * 100d * SC_CLK_TCK_MS / timeMs / numberOfCores);
     }
 
     protected void recordWithCore(CpuStats cpuStats, Recorder recorder, long timeMs, Recorder.Tags tags) {
