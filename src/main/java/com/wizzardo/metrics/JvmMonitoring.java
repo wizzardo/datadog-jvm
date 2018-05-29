@@ -1,10 +1,11 @@
 package com.wizzardo.metrics;
 
+import com.wizzardo.metrics.system.*;
 import com.wizzardo.tools.cache.Cache;
 import com.wizzardo.tools.cache.CacheCleaner;
 import com.wizzardo.tools.cache.CacheStatistics;
-import com.wizzardo.tools.collections.Pair;
 import com.wizzardo.tools.interfaces.Filter;
+import com.wizzardo.tools.misc.Pair;
 
 import java.lang.management.*;
 import java.util.List;
@@ -56,6 +57,15 @@ public class JvmMonitoring {
     protected String metricCacheLatencyTotal = "cache.latency.total";
     protected String metricCacheCount = "cache.count";
     protected String metricCacheCountTotal = "cache.count.total";
+    protected boolean withJvmGcMetrics = true;
+    protected boolean withJvmBasicMemoryMetrics = true;
+    protected boolean withJvmBuffersMetrics = true;
+    protected boolean withJvmMemoryPoolMetrics = true;
+    protected boolean withJvmClassLoadingMetrics = true;
+    protected boolean withJvmCompilationMetrics = true;
+    protected boolean withJvmThreadMetrics = true;
+    protected boolean withCacheMetrics = true;
+    protected boolean withSystemMetrics = false;
 
     public JvmMonitoring(Recorder recorder) {
         this.recorder = recorder;
@@ -110,39 +120,22 @@ public class JvmMonitoring {
             }
         };
 
-        for (GarbageCollectorMXBean gc : ManagementFactory.getGarbageCollectorMXBeans()) {
-            cache.put(gc.getName(), new GcStats(gc, this));
-        }
-
-        cache.put("jvm.memory", new Recordable() {
-            @Override
-            public void record(Recorder recorder) {
-                Runtime rt = Runtime.getRuntime();
-                long freeMemory = rt.freeMemory();
-                long totalMemory = rt.totalMemory();
-                recorder.gauge(metricJvmMemoryFree, freeMemory);
-                recorder.gauge(metricJvmMemoryTotal, totalMemory);
-                recorder.gauge(metricJvmMemoryUsed, totalMemory - freeMemory);
-                recorder.gauge(metricJvmMemoryMax, rt.maxMemory());
+        if (withJvmGcMetrics)
+            for (GarbageCollectorMXBean gc : ManagementFactory.getGarbageCollectorMXBeans()) {
+                cache.put(gc.getName(), new GcStats(gc, this));
             }
 
-            @Override
-            public boolean isValid() {
-                return true;
-            }
-        });
-
-        List<BufferPoolMXBean> bufferPools = ManagementFactory.getPlatformMXBeans(BufferPoolMXBean.class);
-        for (final BufferPoolMXBean bufferPool : bufferPools) {
-            cache.put("jvm.buffer." + bufferPool.getName(), new Recordable() {
-
-                Recorder.Tags tags = getTags(bufferPool);
-
+        if (withJvmBasicMemoryMetrics)
+            cache.put("jvm.memory", new Recordable() {
                 @Override
                 public void record(Recorder recorder) {
-                    recorder.gauge(metricJvmBuffersCount, bufferPool.getCount(), tags);
-                    recorder.gauge(metricJvmBuffersMemoryUsed, bufferPool.getMemoryUsed(), tags);
-                    recorder.gauge(metricJvmBuffersCapacity, bufferPool.getTotalCapacity(), tags);
+                    Runtime rt = Runtime.getRuntime();
+                    long freeMemory = rt.freeMemory();
+                    long totalMemory = rt.totalMemory();
+                    recorder.gauge(metricJvmMemoryFree, freeMemory);
+                    recorder.gauge(metricJvmMemoryTotal, totalMemory);
+                    recorder.gauge(metricJvmMemoryUsed, totalMemory - freeMemory);
+                    recorder.gauge(metricJvmMemoryMax, rt.maxMemory());
                 }
 
                 @Override
@@ -150,60 +143,172 @@ public class JvmMonitoring {
                     return true;
                 }
             });
+
+        if (withJvmBuffersMetrics) {
+            List<BufferPoolMXBean> bufferPools = ManagementFactory.getPlatformMXBeans(BufferPoolMXBean.class);
+            for (final BufferPoolMXBean bufferPool : bufferPools) {
+                cache.put("jvm.buffer." + bufferPool.getName(), new Recordable() {
+
+                    Recorder.Tags tags = getTags(bufferPool);
+
+                    @Override
+                    public void record(Recorder recorder) {
+                        recorder.gauge(metricJvmBuffersCount, bufferPool.getCount(), tags);
+                        recorder.gauge(metricJvmBuffersMemoryUsed, bufferPool.getMemoryUsed(), tags);
+                        recorder.gauge(metricJvmBuffersCapacity, bufferPool.getTotalCapacity(), tags);
+                    }
+
+                    @Override
+                    public boolean isValid() {
+                        return true;
+                    }
+                });
+            }
         }
 
-        for (MemoryPoolMXBean memoryMXBean : ManagementFactory.getMemoryPoolMXBeans()) {
-            cache.put(memoryMXBean.getName(), new MemoryStats(memoryMXBean, this));
+        if (withJvmMemoryPoolMetrics)
+            for (MemoryPoolMXBean memoryMXBean : ManagementFactory.getMemoryPoolMXBeans()) {
+                cache.put(memoryMXBean.getName(), new MemoryStats(memoryMXBean, this));
+            }
+
+
+        if (withJvmClassLoadingMetrics)
+            cache.put("classLoading", new Recordable() {
+                final ClassLoadingMXBean classLoadingMXBean = ManagementFactory.getClassLoadingMXBean();
+
+                @Override
+                public void record(Recorder recorder) {
+                    recorder.gauge(metricJvmClassesLoaded, classLoadingMXBean.getLoadedClassCount());
+                    recorder.gauge(metricJvmTotal, classLoadingMXBean.getTotalLoadedClassCount());
+                    recorder.gauge(metricJvmClassesUnloaded, classLoadingMXBean.getUnloadedClassCount());
+                }
+
+                @Override
+                public boolean isValid() {
+                    return true;
+                }
+            });
+
+        if (withJvmCompilationMetrics)
+            cache.put("compilation", new Recordable() {
+
+                final CompilationMXBean compilationMXBean = ManagementFactory.getCompilationMXBean();
+
+                @Override
+                public void record(Recorder recorder) {
+                    recorder.gauge(metricJvmCompilationTime, compilationMXBean.getTotalCompilationTime());
+                }
+
+                @Override
+                public boolean isValid() {
+                    return true;
+                }
+            });
+
+        if (withJvmThreadMetrics) {
+            com.sun.management.ThreadMXBean threadMXBean = (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
+            if (threadMXBean.isThreadAllocatedMemorySupported() && threadMXBean.isThreadAllocatedMemoryEnabled()
+                    && threadMXBean.isThreadCpuTimeSupported() && threadMXBean.isThreadCpuTimeEnabled()) {
+
+                if (profilerEnabled)
+                    profiler = createProfiler();
+
+                cache.put("threading", new ThreadsStats(threadMXBean, this));
+            }
         }
 
-        final ClassLoadingMXBean classLoadingMXBean = ManagementFactory.getClassLoadingMXBean();
-        cache.put("classLoading", new Recordable() {
-            @Override
-            public void record(Recorder recorder) {
-                recorder.gauge(metricJvmClassesLoaded, classLoadingMXBean.getLoadedClassCount());
-                recorder.gauge(metricJvmTotal, classLoadingMXBean.getTotalLoadedClassCount());
-                recorder.gauge(metricJvmClassesUnloaded, classLoadingMXBean.getUnloadedClassCount());
-            }
-
-            @Override
-            public boolean isValid() {
-                return true;
-            }
-        });
-
-        final CompilationMXBean compilationMXBean = ManagementFactory.getCompilationMXBean();
-        cache.put("compilation", new Recordable() {
-            @Override
-            public void record(Recorder recorder) {
-                recorder.gauge(metricJvmCompilationTime, compilationMXBean.getTotalCompilationTime());
-            }
-
-            @Override
-            public boolean isValid() {
-                return true;
-            }
-        });
-
-        com.sun.management.ThreadMXBean threadMXBean = (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
-        if (threadMXBean.isThreadAllocatedMemorySupported() && threadMXBean.isThreadAllocatedMemoryEnabled()
-                && threadMXBean.isThreadCpuTimeSupported() && threadMXBean.isThreadCpuTimeEnabled()) {
-
-            if (profilerEnabled)
-                profiler = createProfiler();
-
-            cache.put("threading", new ThreadsStats(threadMXBean, this));
-        }
-
-        final AtomicInteger counter = new AtomicInteger(0);
-        CacheCleaner.addListener(new CacheCleaner.OnCacheAddedListener() {
-            @Override
-            public void onAdd(Cache c) {
+        if (withCacheMetrics) {
+            final AtomicInteger counter = new AtomicInteger(0);
+            CacheCleaner.addListener(new CacheCleaner.OnCacheAddedListener() {
+                @Override
+                public void onAdd(Cache c) {
+                    cache.put("cache" + counter.incrementAndGet() + "." + c.getName(), createCacheStats(c));
+                }
+            });
+            for (Cache c : CacheCleaner.iterable()) {
                 cache.put("cache" + counter.incrementAndGet() + "." + c.getName(), createCacheStats(c));
             }
-        });
-        for (Cache c : CacheCleaner.iterable()) {
-            cache.put("cache" + counter.incrementAndGet() + "." + c.getName(), createCacheStats(c));
         }
+
+        if (withSystemMetrics) {
+            cache.put("CpuStat", new CpuStatReader().createRecordable());
+            cache.put("DiskStat", new DiskStatsReader().createRecordable());
+            cache.put("LoadStat", new LoadStatsReader().createRecordable());
+            cache.put("MemoryStat", new MemoryStatsReader().createRecordable());
+            cache.put("NetworkStat", new NetworkStatsReader().createRecordable());
+        }
+    }
+
+    public boolean isWithJvmGcMetrics() {
+        return withJvmGcMetrics;
+    }
+
+    public void setWithJvmGcMetrics(boolean withJvmGcMetrics) {
+        this.withJvmGcMetrics = withJvmGcMetrics;
+    }
+
+    public boolean isWithJvmBasicMemoryMetrics() {
+        return withJvmBasicMemoryMetrics;
+    }
+
+    public void setWithJvmBasicMemoryMetrics(boolean withJvmBasicMemoryMetrics) {
+        this.withJvmBasicMemoryMetrics = withJvmBasicMemoryMetrics;
+    }
+
+    public boolean isWithJvmBuffersMetrics() {
+        return withJvmBuffersMetrics;
+    }
+
+    public void setWithJvmBuffersMetrics(boolean withJvmBuffersMetrics) {
+        this.withJvmBuffersMetrics = withJvmBuffersMetrics;
+    }
+
+    public boolean isWithJvmMemoryPoolMetrics() {
+        return withJvmMemoryPoolMetrics;
+    }
+
+    public void setWithJvmMemoryPoolMetrics(boolean withJvmMemoryPoolMetrics) {
+        this.withJvmMemoryPoolMetrics = withJvmMemoryPoolMetrics;
+    }
+
+    public boolean isWithJvmClassLoadingMetrics() {
+        return withJvmClassLoadingMetrics;
+    }
+
+    public void setWithJvmClassLoadingMetrics(boolean withJvmClassLoadingMetrics) {
+        this.withJvmClassLoadingMetrics = withJvmClassLoadingMetrics;
+    }
+
+    public boolean isWithJvmCompilationMetrics() {
+        return withJvmCompilationMetrics;
+    }
+
+    public void setWithJvmCompilationMetrics(boolean withJvmCompilationMetrics) {
+        this.withJvmCompilationMetrics = withJvmCompilationMetrics;
+    }
+
+    public boolean isWithJvmThreadMetrics() {
+        return withJvmThreadMetrics;
+    }
+
+    public void setWithJvmThreadMetrics(boolean withJvmThreadMetrics) {
+        this.withJvmThreadMetrics = withJvmThreadMetrics;
+    }
+
+    public boolean isWithCacheMetrics() {
+        return withCacheMetrics;
+    }
+
+    public void setWithCacheMetrics(boolean withCacheMetrics) {
+        this.withCacheMetrics = withCacheMetrics;
+    }
+
+    public boolean isWithSystemMetrics() {
+        return withSystemMetrics;
+    }
+
+    public void setWithSystemMetrics(boolean withSystemMetrics) {
+        this.withSystemMetrics = withSystemMetrics;
     }
 
     protected CacheStats createCacheStats(Cache cache) {
