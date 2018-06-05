@@ -1,6 +1,7 @@
 package com.wizzardo.metrics;
 
 import java.lang.management.MemoryPoolMXBean;
+import java.lang.management.MemoryUsage;
 
 /**
  * Created by wizzardo on 08/10/16.
@@ -22,10 +23,11 @@ public class MemoryPoolStats implements JvmMonitoring.Recordable {
         if (!isValid())
             return;
 
-        recorder.gauge(jvmMonitoring.metricJvmMemoryPoolCommitted, memoryPool.getUsage().getCommitted(), tags);
-        recorder.gauge(jvmMonitoring.metricJvmMemoryPoolInit, memoryPool.getUsage().getInit(), tags);
-        recorder.gauge(jvmMonitoring.metricJvmMemoryPoolMax, memoryPool.getUsage().getMax(), tags);
-        recorder.gauge(jvmMonitoring.metricJvmMemoryPoolUsed, memoryPool.getUsage().getUsed(), tags);
+        MemoryUsage usage = memoryPool.getUsage();
+        recorder.gauge(jvmMonitoring.metricJvmMemoryPoolCommitted, usage.getCommitted(), tags);
+        recorder.gauge(jvmMonitoring.metricJvmMemoryPoolInit, usage.getInit(), tags);
+        recorder.gauge(jvmMonitoring.metricJvmMemoryPoolMax, usage.getMax(), tags);
+        recorder.gauge(jvmMonitoring.metricJvmMemoryPoolUsed, usage.getUsed(), tags);
     }
 
     @Override

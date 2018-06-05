@@ -28,6 +28,10 @@ public class JvmMonitoring {
     protected String metricJvmMemoryTotal = "jvm.memory.total";
     protected String metricJvmMemoryUsed = "jvm.memory.used";
     protected String metricJvmMemoryMax = "jvm.memory.max";
+    protected String metricJvmMemCommitted = "jvm.mem.committed";
+    protected String metricJvmMemInit = "jvm.mem.init";
+    protected String metricJvmMemUsed = "jvm.mem.used";
+    protected String metricJvmMemMax = "jvm.mem.max";
     protected String metricJvmGcCountTotal = "jvm.gc.countTotal";
     protected String metricJvmGcTimeTotal = "jvm.gc.timeTotal";
     protected String metricJvmGcCount = "jvm.gc.count";
@@ -61,6 +65,7 @@ public class JvmMonitoring {
     protected boolean withJvmBasicMemoryMetrics = true;
     protected boolean withJvmBuffersMetrics = true;
     protected boolean withJvmMemoryPoolMetrics = true;
+    protected boolean withJvmMemoryMetrics = true;
     protected boolean withJvmClassLoadingMetrics = true;
     protected boolean withJvmCompilationMetrics = true;
     protected boolean withJvmThreadMetrics = true;
@@ -170,6 +175,12 @@ public class JvmMonitoring {
             for (MemoryPoolMXBean memoryMXBean : ManagementFactory.getMemoryPoolMXBeans()) {
                 cache.put(memoryMXBean.getName(), new MemoryPoolStats(memoryMXBean, this));
             }
+
+        if (withJvmMemoryMetrics) {
+            MemoryMXBean memoryMXBean = ManagementFactory.getMemoryMXBean();
+            cache.put("jvm.mem.heap", new MemoryStats(memoryMXBean.getHeapMemoryUsage(), this, Recorder.Tags.of("type", "heap")));
+            cache.put("jvm.mem.nonheap", new MemoryStats(memoryMXBean.getNonHeapMemoryUsage(), this, Recorder.Tags.of("type", "nonheap")));
+        }
 
 
         if (withJvmClassLoadingMetrics)
