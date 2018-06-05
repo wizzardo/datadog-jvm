@@ -168,7 +168,7 @@ public class JvmMonitoring {
 
         if (withJvmMemoryPoolMetrics)
             for (MemoryPoolMXBean memoryMXBean : ManagementFactory.getMemoryPoolMXBeans()) {
-                cache.put(memoryMXBean.getName(), new MemoryStats(memoryMXBean, this));
+                cache.put(memoryMXBean.getName(), new MemoryPoolStats(memoryMXBean, this));
             }
 
 

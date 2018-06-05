@@ -5,13 +5,13 @@ import java.lang.management.MemoryPoolMXBean;
 /**
  * Created by wizzardo on 08/10/16.
  */
-public class MemoryStats implements JvmMonitoring.Recordable {
+public class MemoryPoolStats implements JvmMonitoring.Recordable {
 
     private MemoryPoolMXBean memoryPool;
     private Recorder.Tags tags;
     private JvmMonitoring jvmMonitoring;
 
-    public MemoryStats(MemoryPoolMXBean memoryPool, JvmMonitoring jvmMonitoring) {
+    public MemoryPoolStats(MemoryPoolMXBean memoryPool, JvmMonitoring jvmMonitoring) {
         this.memoryPool = memoryPool;
         this.jvmMonitoring = jvmMonitoring;
         tags = jvmMonitoring.getTags(memoryPool);
