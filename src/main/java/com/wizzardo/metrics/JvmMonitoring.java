@@ -282,6 +282,14 @@ public class JvmMonitoring {
         this.withJvmMemoryPoolMetrics = withJvmMemoryPoolMetrics;
     }
 
+    public boolean isWithJvmMemoryMetrics() {
+        return withJvmMemoryMetrics;
+    }
+
+    public void setWithJvmMemoryMetrics(boolean withJvmMemoryMetrics) {
+        this.withJvmMemoryMetrics = withJvmMemoryMetrics;
+    }
+
     public boolean isWithJvmClassLoadingMetrics() {
         return withJvmClassLoadingMetrics;
     }
