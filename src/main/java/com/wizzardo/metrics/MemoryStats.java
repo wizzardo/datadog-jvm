@@ -1,21 +1,25 @@
 package com.wizzardo.metrics;
 
+import com.wizzardo.tools.interfaces.Supplier;
+
 import java.lang.management.MemoryUsage;
+import java.util.concurrent.Callable;
 
 public class MemoryStats implements JvmMonitoring.Recordable {
 
-    private MemoryUsage usage;
+    private Supplier<MemoryUsage> provider;
     private JvmMonitoring jvmMonitoring;
     private Recorder.Tags tags;
 
-    public MemoryStats(MemoryUsage usage, JvmMonitoring jvmMonitoring, Recorder.Tags tags) {
-        this.usage = usage;
+    public MemoryStats(Supplier<MemoryUsage> provider, JvmMonitoring jvmMonitoring, Recorder.Tags tags) {
+        this.provider = provider;
         this.jvmMonitoring = jvmMonitoring;
         this.tags = tags;
     }
 
     @Override
     public void record(Recorder recorder) {
+        MemoryUsage usage = provider.supply();
         long committed = usage.getCommitted();
         long init = usage.getInit();
         long max = usage.getMax();

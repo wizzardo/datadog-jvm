@@ -5,6 +5,7 @@ import com.wizzardo.tools.cache.Cache;
 import com.wizzardo.tools.cache.CacheCleaner;
 import com.wizzardo.tools.cache.CacheStatistics;
 import com.wizzardo.tools.interfaces.Filter;
+import com.wizzardo.tools.interfaces.Supplier;
 import com.wizzardo.tools.misc.Pair;
 
 import java.lang.management.*;
@@ -177,9 +178,19 @@ public class JvmMonitoring {
             }
 
         if (withJvmMemoryMetrics) {
-            MemoryMXBean memoryMXBean = ManagementFactory.getMemoryMXBean();
-            cache.put("jvm.mem.heap", new MemoryStats(memoryMXBean.getHeapMemoryUsage(), this, Recorder.Tags.of("type", "heap")));
-            cache.put("jvm.mem.nonheap", new MemoryStats(memoryMXBean.getNonHeapMemoryUsage(), this, Recorder.Tags.of("type", "nonheap")));
+            final MemoryMXBean memoryMXBean = ManagementFactory.getMemoryMXBean();
+            cache.put("jvm.mem.heap", new MemoryStats(new Supplier<MemoryUsage>() {
+                @Override
+                public MemoryUsage supply() {
+                    return memoryMXBean.getHeapMemoryUsage();
+                }
+            }, this, Recorder.Tags.of("type", "heap")));
+            cache.put("jvm.mem.nonheap", new MemoryStats(new Supplier<MemoryUsage>() {
+                @Override
+                public MemoryUsage supply() {
+                    return memoryMXBean.getNonHeapMemoryUsage();
+                }
+            }, this, Recorder.Tags.of("type", "nonheap")));
         }
 
 
