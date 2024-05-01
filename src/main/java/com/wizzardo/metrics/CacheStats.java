@@ -1,7 +1,7 @@
 package com.wizzardo.metrics;
 
 import com.wizzardo.tools.cache.CacheStatistics;
-import com.wizzardo.tools.cache.MemoryLimitedCache;
+//import com.wizzardo.tools.cache.MemoryLimitedCache;
 
 /**
  * Created by wizzardo on 08/10/16.
@@ -9,7 +9,7 @@ import com.wizzardo.tools.cache.MemoryLimitedCache;
 public class CacheStats implements JvmMonitoring.Recordable {
 
     private CacheStatistics statistics;
-    private MemoryLimitedCache.CacheStatisticsWithHeapUsage statisticsWithHeapUsage;
+//    private MemoryLimitedCache.CacheStatisticsWithHeapUsage statisticsWithHeapUsage;
     private JvmMonitoring jvmMonitoring;
     private StatisticsHolder previous;
     private Recorder.Tags tagsGetCount;
@@ -26,8 +26,8 @@ public class CacheStats implements JvmMonitoring.Recordable {
     public CacheStats(CacheStatistics cacheStatistics, JvmMonitoring jvmMonitoring) {
         this.statistics = cacheStatistics;
         this.jvmMonitoring = jvmMonitoring;
-        if (statistics instanceof MemoryLimitedCache.CacheStatisticsWithHeapUsage)
-            statisticsWithHeapUsage = (MemoryLimitedCache.CacheStatisticsWithHeapUsage) statistics;
+//        if (statistics instanceof MemoryLimitedCache.CacheStatisticsWithHeapUsage)
+//            statisticsWithHeapUsage = (MemoryLimitedCache.CacheStatisticsWithHeapUsage) statistics;
 
         previous = new StatisticsHolder();
 
@@ -61,8 +61,8 @@ public class CacheStats implements JvmMonitoring.Recordable {
             return;
 
         recorder.gauge(jvmMonitoring.getMetricCacheSize(), statistics.getSize(), tagsSize);
-        if (statisticsWithHeapUsage != null)
-            recorder.gauge(jvmMonitoring.getMetricCacheHeap(), statisticsWithHeapUsage.getHeapUsage(), tagsHeap);
+//        if (statisticsWithHeapUsage != null)
+//            recorder.gauge(jvmMonitoring.getMetricCacheHeap(), statisticsWithHeapUsage.getHeapUsage(), tagsHeap);
 
         long computeCount = statistics.getComputeCount();
         long computeLatency = statistics.getComputeLatency();

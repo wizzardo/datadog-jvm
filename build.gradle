@@ -1,15 +1,14 @@
 apply plugin: 'java'
 
 repositories {
-    jcenter()
     mavenCentral()
     maven {
         url "https://oss.sonatype.org/content/repositories/snapshots/"
     }
 }
 
-sourceCompatibility = 1.7
-targetCompatibility = 1.7
+sourceCompatibility = 8
+targetCompatibility = 8
 
 group = 'com.wizzardo'
 version = '0.4-SNAPSHOT'
@@ -20,6 +19,7 @@ ext {
 apply from: 'gradle/sonatype.gradle'
 
 dependencies {
-    compile 'com.wizzardo.tools:tools:0.21'
-    compile 'com.indeed:java-dogstatsd-client:2.0.16'
+    implementation 'com.wizzardo.tools:tools-cache:0.24-SNAPSHOT'
+    implementation 'com.wizzardo.tools:tools-misc:0.24-SNAPSHOT'
+    implementation 'com.wizzardo.tools:tools-interfaces:0.24-SNAPSHOT'
 }

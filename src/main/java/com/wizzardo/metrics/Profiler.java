@@ -2,7 +2,7 @@ package com.wizzardo.metrics;
 
 import com.wizzardo.tools.interfaces.BiConsumer;
 import com.wizzardo.tools.interfaces.Filter;
-import javafx.util.Pair;
+import com.wizzardo.tools.misc.Pair;
 
 import java.io.PrintStream;
 import java.lang.management.ManagementFactory;
@@ -113,7 +113,7 @@ public class Profiler extends Thread {
                     if (pair == null)
                         samples.put(threadInfo.getThreadId(), pair = new Pair<>(new SimpleThreadInfo(threadInfo, jvmMonitoring), new StackTraceEntry()));
 
-                    StackTraceEntry entry = pair.getValue();
+                    StackTraceEntry entry = pair.value;
 
                     int length = stackTrace.length;
                     for (int i = length - 1; i >= 0; i--) {
@@ -129,8 +129,8 @@ public class Profiler extends Thread {
             time = System.nanoTime();
             if (time >= nextPrint) {
                 for (Pair<SimpleThreadInfo, StackTraceEntry> pair : samples.values()) {
-                    SimpleThreadInfo threadInfo = pair.getKey();
-                    StackTraceEntry value = pair.getValue();
+                    SimpleThreadInfo threadInfo = pair.key;
+                    StackTraceEntry value = pair.value;
 
                     handleResult(threadInfo, value);
                 }
