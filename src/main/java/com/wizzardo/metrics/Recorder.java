@@ -91,18 +91,11 @@ public class Recorder {
                     histogram(METHOD_ALLOCATION, allocated, tags);
                 }
 
-                int i = tags.size();
-                tags.add("type", "cpu");
-
                 if (cpuTime > 0) {
-                    histogram(METHOD_TIME, cpuTime, tags);
+                    histogram(METHOD_TIME, cpuTime, Tags.of(tags).add("type", "cpu"));
                 }
-
-                tags.set(i, "type:total");
-                histogram(METHOD_TIME, time, tags);
-
-                tags.set(i, "type:wait");
-                histogram(METHOD_TIME, time - cpuTime, tags);
+                histogram(METHOD_TIME, time, Tags.of(tags).add("type", "total"));
+                histogram(METHOD_TIME, time - cpuTime, Tags.of(tags).add("type", "wait"));
             } catch (Exception e) {
                 onError(e);
             }

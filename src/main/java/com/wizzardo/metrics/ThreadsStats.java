@@ -71,9 +71,7 @@ public class ThreadsStats implements JvmMonitoring.Recordable {
 
                 threads.put(id, tInfo);
                 tInfo.name = threadInfo.getThreadName();
-                tInfo.group = JvmMonitoring.threadGroup(id).getName();
-                if ("main".equalsIgnoreCase(tInfo.group) || "system".equalsIgnoreCase(tInfo.group))
-                    tInfo.group = jvmMonitoring.resolveThreadGroupName(tInfo.name, tInfo.group);
+                tInfo.group = jvmMonitoring.resolveThreadGroupName(tInfo.name, JvmMonitoring.threadGroup(id).getName());
 
                 tInfo.tags = jvmMonitoring.getTags(tInfo);
                 if (tInfo.name.equals("DestroyJavaVM") || tInfo.name.equals("Profiler"))
