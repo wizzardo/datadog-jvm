@@ -4,6 +4,7 @@ import com.wizzardo.metrics.system.*;
 import com.wizzardo.tools.cache.Cache;
 import com.wizzardo.tools.cache.CacheCleaner;
 import com.wizzardo.tools.cache.CacheStatistics;
+import com.wizzardo.tools.cache.StatisticsWithHeapUsageWrapper;
 import com.wizzardo.tools.interfaces.Filter;
 import com.wizzardo.tools.interfaces.Supplier;
 import com.wizzardo.tools.misc.Pair;
@@ -239,18 +240,18 @@ public class JvmMonitoring {
             }
         }
 
-        if (withCacheMetrics) {
-            final AtomicInteger counter = new AtomicInteger(0);
-            CacheCleaner.addListener(new CacheCleaner.OnCacheAddedListener() {
-                @Override
-                public void onAdd(Cache c) {
-                    cache.put("cache" + counter.incrementAndGet() + "." + c.getName(), createCacheStats(c));
-                }
-            });
-            for (Cache c : CacheCleaner.iterable()) {
-                cache.put("cache" + counter.incrementAndGet() + "." + c.getName(), createCacheStats(c));
-            }
-        }
+//        if (withCacheMetrics) {
+//            final AtomicInteger counter = new AtomicInteger(0);
+//            CacheCleaner.addListener(new CacheCleaner.OnCacheAddedListener() {
+//                @Override
+//                public void onAdd(Cache c) {
+//                    cache.put("cache" + counter.incrementAndGet() + "." + c.getName(), createCacheStats(c));
+//                }
+//            });
+//            for (Cache c : CacheCleaner.iterable()) {
+//                cache.put("cache" + counter.incrementAndGet() + "." + c.getName(), createCacheStats(c));
+//            }
+//        }
 
         if (withSystemMetrics) {
             cache.put("CpuStat", new CpuStatReader().createRecordable());
@@ -341,9 +342,9 @@ public class JvmMonitoring {
         this.withSystemMetrics = withSystemMetrics;
     }
 
-    protected CacheStats createCacheStats(Cache cache) {
-        return new CacheStats(cache.getStatistics(), this);
-    }
+//    protected CacheStats createCacheStats(Cache cache) {
+//        return new CacheStats(cache.getStatistics(), this);
+//    }
 
     protected Profiler createProfiler() {
         Profiler profiler = new Profiler(this);
